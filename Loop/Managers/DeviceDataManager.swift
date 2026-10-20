@@ -1129,6 +1129,14 @@ extension DeviceDataManager: WatchManagerDelegate {
             watchManagerHost?.refresh()
         }
     }
+
+    nonisolated
+    func watchManager(_ manager: WatchManager, requestBolus request: WatchBolusRequest) async throws -> Double {
+        guard let host = await watchManagerHost else {
+            throw WatchBolusError.notAllowed
+        }
+        return try await host.handleBolusRequest(request, from: manager)
+    }
 }
 
 // MARK: - WatchManagerOnboardingDelegate

@@ -23,6 +23,8 @@ struct SettingsView: View {
     @Environment(\.glucoseTintColor) private var glucoseTintColor
     @Environment(\.insulinTintColor) private var insulinTintColor
     @Environment(\.isInvestigationalDevice) private var isInvestigationalDevice
+    // Backs the commented-out Allow Boluses from Watch toggle in Devices; off by default.
+    // @AppStorage(UserDefaults.allowWatchBolusKey) private var allowWatchBolus = false
 
     @State var viewModel: SettingsViewModel
     @ObservedObject var versionUpdateViewModel: VersionUpdateViewModel
@@ -453,6 +455,23 @@ extension SettingsView {
 
             watchSection
                 .accessibilityIdentifier("settingsViewWatch")
+
+            // Boluses from the watch. Off by default, and the toggle stays commented
+            // out until a watch plugin authenticates requests end to end (an encrypted
+            // link plus a per-watch key; see the WatchManager proposal, section 10).
+            // Enabling also needs the WATCH_BOLUS_ENABLED build flag; Loop's
+            // WatchBolusPolicy still checks every request.
+            //
+            // if FeatureFlags.watchBolusEnabled, viewModel.watchManagerSettingsViewModel.isSetUp() {
+            //     Toggle(isOn: $allowWatchBolus) {
+            //         VStack(alignment: .leading) {
+            //             Text(NSLocalizedString("Allow Boluses from Watch", comment: "Toggle allowing boluses requested from a watch plugin"))
+            //             Text(NSLocalizedString("Loop delivers a bolus confirmed on the watch only if it matches the current recommendation, is within your maximum bolus, and at most one every 15 minutes.", comment: "Explanation below the Allow Boluses from Watch toggle"))
+            //                 .font(.footnote)
+            //                 .foregroundColor(.secondary)
+            //         }
+            //     }
+            // }
         }
     }
     

@@ -15,6 +15,10 @@ import LoopKit
 /// A new glucose reading is sent as soon as the glucose store saves it, before
 /// the loop runs; the snapshot is sent again when the loop's output changes.
 /// Unchanged snapshots and alert states are not resent.
+///
+/// For plugins that declare `.bolus`, it also issues the bolus context and
+/// decides on bolus requests with `WatchBolusPolicy`. Watch boluses stay off
+/// unless the build sets `WATCH_BOLUS_ENABLED` and the user allows them.
 @MainActor
 final class WatchManagerHost {
     private unowned let deviceManager: DeviceDataManager
@@ -23,11 +27,15 @@ final class WatchManagerHost {
     private let glucoseStore: GlucoseStore
     private let glucoseAlertManager: GlucoseAlertManager
     private let alertMuter: AlertMuter
+    private let deliverBolus: (Double) async throws -> Void
 
     private let log = DiagnosticLog(category: "WatchManagerHost")
 
     private var lastSentSnapshot: WatchStatusSnapshot?
     private var lastSentAlertState: WatchGlucoseAlertState?
+    /// The bolus context last sent, and what it was computed from.
+    private var bolusContext: WatchBolusContext?
+    private var bolusContextBasis: BolusContextBasis?
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
     private var notificationObservers: [Any] = []
@@ -39,7 +47,8 @@ final class WatchManagerHost {
         settingsManager: SettingsManager,
         glucoseStore: GlucoseStore,
         glucoseAlertManager: GlucoseAlertManager,
-        alertMuter: AlertMuter
+        alertMuter: AlertMuter,
+        deliverBolus: @escaping (Double) async throws -> Void
     ) {
         self.deviceManager = deviceManager
         self.loopDataManager = loopDataManager
@@ -47,6 +56,7 @@ final class WatchManagerHost {
         self.glucoseStore = glucoseStore
         self.glucoseAlertManager = glucoseAlertManager
         self.alertMuter = alertMuter
+        self.deliverBolus = deliverBolus
 
         notificationObservers = [
             // Posted as soon as new samples are saved, before LoopDataManager
@@ -134,7 +144,87 @@ final class WatchManagerHost {
             snapshot.lastLoopCompleted = loopDataManager.lastLoopCompleted
             snapshot.isClosedLoop = settingsManager.loopSettings.dosingEnabled
         }
+        if capabilities.contains(.bolus) {
+            snapshot.bolusContext = await currentBolusContext(latestGlucoseDate: samples.last?.startDate)
+        }
         return snapshot
+    }
+
+    // MARK: - Watch bolus
+
+    /// What a bolus context is computed from; a new token is issued when it changes.
+    private struct BolusContextBasis: Equatable {
+        let recommendedBolus: Double?
+        let maximumBolus: Double?
+        let supportedBolusVolumes: [Double]
+        let latestGlucoseDate: Date?
+    }
+
+    private func currentBolusContext(latestGlucoseDate: Date?) async -> WatchBolusContext {
+        let recommendation = try? await loopDataManager.recommendManualBolus()
+        let basis = BolusContextBasis(
+            recommendedBolus: recommendation.flatMap { $0.amount > 0 ? $0.amount : nil },
+            maximumBolus: settingsManager.loopSettings.maximumBolus,
+            supportedBolusVolumes: deviceManager.pumpManager?.supportedBolusVolumes ?? [],
+            latestGlucoseDate: latestGlucoseDate
+        )
+        if let bolusContext, basis == bolusContextBasis {
+            return bolusContext
+        }
+        let context = WatchBolusContext(
+            token: UUID(),
+            issuedAt: Date(),
+            recommendedBolus: basis.recommendedBolus,
+            maximumBolus: basis.maximumBolus,
+            supportedBolusVolumes: basis.supportedBolusVolumes
+        )
+        bolusContext = context
+        bolusContextBasis = basis
+        return context
+    }
+
+    /// Delivers a bolus the plugin authenticated, if `WatchBolusPolicy` allows it.
+    /// Every request and its outcome goes to the device log.
+    func handleBolusRequest(_ request: WatchBolusRequest, from manager: WatchManager) async throws -> Double {
+        let isCurrentWatch = deviceManager.watchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
+        logBolus(manager, type: .receive, String(format: "Bolus request: %.3f U, confirmed at %@, context %@", request.units, String(describing: request.requestedAt), request.contextToken.uuidString))
+
+        let policy = WatchBolusPolicy(
+            isAllowed: FeatureFlags.watchBolusEnabled && UserDefaults.standard.allowWatchBolus && isCurrentWatch && type(of: manager).capabilities.contains(.bolus),
+            currentContext: bolusContext,
+            recentDeliveries: UserDefaults.standard.watchBolusDeliveries,
+            roundToSupportedVolume: { [deviceManager] units in
+                deviceManager.pumpManager?.roundToSupportedBolusVolume(units: units) ?? units
+            }
+        )
+        let units: Double
+        switch policy.evaluate(request, now: Date()) {
+        case .failure(let error):
+            logBolus(manager, type: .error, "Bolus request rejected: \(error)")
+            throw error
+        case .success(let allowed):
+            units = allowed
+        }
+
+        // Spend the context so the same request cannot deliver twice.
+        bolusContext = nil
+        bolusContextBasis = nil
+        logBolus(manager, type: .delegate, String(format: "Delivering watch bolus of %.3f U", units))
+        do {
+            try await deliverBolus(units)
+        } catch {
+            logBolus(manager, type: .error, "Watch bolus delivery failed: \(error)")
+            refresh()
+            throw WatchBolusError.deliveryFailed(String(describing: error))
+        }
+        UserDefaults.standard.watchBolusDeliveries += [WatchBolusPolicy.Delivery(date: Date(), units: units)]
+        logBolus(manager, type: .delegateResponse, String(format: "Watch bolus of %.3f U delivered", units))
+        refresh()
+        return units
+    }
+
+    private func logBolus(_ manager: WatchManager, type: DeviceLogEntryType, _ message: String) {
+        deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: type, message: message, completion: nil)
     }
 
     private func sendAlertStateIfNeeded() {

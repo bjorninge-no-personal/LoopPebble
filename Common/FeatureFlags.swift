@@ -40,6 +40,7 @@ struct FeatureFlagConfiguration: Decodable {
     let allowAlgorithmExperiments: Bool
     let isInvestigationalDevice: Bool
     let devBranchWarningEnabled: Bool
+    let watchBolusEnabled: Bool
 
     fileprivate init() {
         // Swift compiler config is inverse, since the default state is enabled.
@@ -227,6 +228,14 @@ struct FeatureFlagConfiguration: Decodable {
         self.allowAlgorithmExperiments = false
         #endif
 
+        // Boluses requested from a watch plugin. Off unless the build opts in, and
+        // even then only after the user allows them in Settings.
+        #if WATCH_BOLUS_ENABLED
+        self.watchBolusEnabled = true
+        #else
+        self.watchBolusEnabled = false
+        #endif
+
         #if INVESTIGATIONAL_DEVICE
         self.isInvestigationalDevice = true
         #else
@@ -260,6 +269,7 @@ extension FeatureFlagConfiguration : CustomDebugStringConvertible {
             "* observeHealthKitGlucoseSamplesFromOtherApps: \(observeHealthKitGlucoseSamplesFromOtherApps)",
             "* predictedGlucoseChartClampEnabled: \(predictedGlucoseChartClampEnabled)",
             "* remoteCommandsEnabled: \(remoteCommandsEnabled)",
+            "* watchBolusEnabled: \(watchBolusEnabled)",
             "* scenariosEnabled: \(scenariosEnabled)",
             "* showEventualBloodGlucoseOnWatchEnabled: \(showEventualBloodGlucoseOnWatchEnabled)",
             "* simulatedCoreDataEnabled: \(simulatedCoreDataEnabled)",
