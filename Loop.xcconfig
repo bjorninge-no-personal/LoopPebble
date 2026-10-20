@@ -25,6 +25,12 @@ SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited)
 // General [DEFAULT]
 LOOP_LOCAL_CACHE_DURATION_DAYS = 90
 
+// Background modes [DEFAULT]
+// YES adds the bluetooth-peripheral background mode, which watch plugins that publish
+// a Bluetooth service (such as the Luped Pebble link) need to keep the watch updated
+// while Loop is in the background. Set to NO to leave it out.
+LOOP_BLUETOOTH_PERIPHERAL_BACKGROUND_MODE = YES
+
 // Entitlements [DEFAULT]
 LOOP_ENTITLEMENTS = Loop/Loop.entitlements
 

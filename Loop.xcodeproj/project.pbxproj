@@ -2867,6 +2867,7 @@
 				C1D19800232CFA2A0096D646 /* Capture Build Details */,
 				C1092BFE29F88F0600AE3D1C /* Apply Info Customizations */,
 				4F70C1EC1DE8DCA8006380B7 /* Embed Foundation Extensions */,
+				C1BA0DE5A1B2C3D4E5F60718 /* Apply Background Modes */,
 			);
 			buildRules = (
 			);
@@ -3253,6 +3254,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C1BA0DE5A1B2C3D4E5F60718 /* Apply Background Modes */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Apply Background Modes";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/Scripts/apply-background-modes.sh\"\n";
+		};
 		C1092BFE29F88F0600AE3D1C /* Apply Info Customizations */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
