@@ -107,6 +107,9 @@ class SettingsViewModel {
     let cgmManagerSettingsViewModel: CGMManagerViewModel
     /// Shown in Settings → Devices only when a watch plugin is installed.
     var watchManagerSettingsViewModel = WatchManagerViewModel()
+    /// Changes whenever a watch manager is added or removed, so the Devices row
+    /// re-renders; the view model's closures are not observable.
+    private(set) var watchManagerRevision = 0
     let servicesViewModel: ServicesViewModel
     let criticalEventLogExportViewModel: CriticalEventLogExportViewModel
     let therapySettings: () -> TherapySettings
@@ -211,6 +214,11 @@ class SettingsViewModel {
         self.presetHistory = presetHistory
         self.deliveryDelegate = deliveryDelegate
         self.deviceManager = deviceManager
+
+        NotificationCenter.default.publisher(for: .WatchManagerChanged)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.watchManagerRevision += 1 }
+            .store(in: &cancellables)
 
         // This strangeness ensures the composed ViewModels' (ObservableObjects') changes get reported to this ViewModel (ObservableObject)
         lastLoopCompletion

@@ -493,6 +493,7 @@ extension SettingsView {
     /// Only shown when a watch plugin is installed or set up.
     @ViewBuilder
     private var watchSection: some View {
+        let _ = viewModel.watchManagerRevision
         if viewModel.watchManagerSettingsViewModel.isSetUp() {
             LargeButton(action: self.viewModel.watchManagerSettingsViewModel.didTap,
                         includeArrow: true,
