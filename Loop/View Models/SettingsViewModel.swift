@@ -48,6 +48,7 @@ public class DeviceViewModel<T>: ObservableObject {
 
 public typealias CGMManagerViewModel = DeviceViewModel<CGMManagerDescriptor>
 public typealias PumpManagerViewModel = DeviceViewModel<PumpManagerDescriptor>
+public typealias WatchManagerViewModel = DeviceViewModel<WatchManagerDescriptor>
 
 public protocol SettingsViewModelDelegate: AnyObject {
     func dosingEnabledChanged(_: Bool)
@@ -104,6 +105,8 @@ class SettingsViewModel {
     var availableSupports: [SupportUI]
     let pumpManagerSettingsViewModel: PumpManagerViewModel
     let cgmManagerSettingsViewModel: CGMManagerViewModel
+    /// Shown in Settings → Devices only when a watch plugin is installed.
+    var watchManagerSettingsViewModel = WatchManagerViewModel()
     let servicesViewModel: ServicesViewModel
     let criticalEventLogExportViewModel: CriticalEventLogExportViewModel
     let therapySettings: () -> TherapySettings

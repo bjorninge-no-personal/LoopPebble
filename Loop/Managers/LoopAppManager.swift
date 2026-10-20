@@ -94,6 +94,7 @@ class LoopAppManager: NSObject {
     private var mealDetectionManager: MealDetectionManager!
     private var statusExtensionManager: ExtensionDataManager!
     private var watchManager: WatchDataManager!
+    private var watchManagerHost: WatchManagerHost!
     private var crashRecoveryManager: CrashRecoveryManager!
     private var cgmEventStore: CgmEventStore!
     private var servicesManager: ServicesManager!
@@ -426,6 +427,16 @@ class LoopAppManager: NSObject {
             healthStore: healthStore
         )
 
+        watchManagerHost = WatchManagerHost(
+            deviceManager: deviceDataManager,
+            loopDataManager: loopDataManager,
+            settingsManager: settingsManager,
+            glucoseStore: glucoseStore,
+            glucoseAlertManager: deviceDataManager.glucoseAlertManager,
+            alertMuter: alertManager.alertMuter
+        )
+        deviceDataManager.watchManagerHost = watchManagerHost
+
         self.mealDetectionManager = MealDetectionManager(
             algorithmStateProvider: loopDataManager,
             settingsProvider: temporaryPresetsManager,
@@ -603,6 +614,12 @@ class LoopAppManager: NSObject {
         )
         
         viewModel.favoriteFoodInsightsDelegate = loopDataManager
+        viewModel.watchManagerSettingsViewModel = WatchManagerViewModel(
+            image: {[weak self] in self?.deviceDataManager.watchManager?.smallImage },
+            name: {[weak self] in self?.deviceDataManager.watchManager?.localizedTitle ?? "" },
+            isSetUp: {[weak self] in self?.deviceDataManager.watchManager?.isOnboarded == true },
+            availableDevices: deviceDataManager.availableWatchManagers
+        )
         
         return viewModel
     }()

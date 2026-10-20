@@ -91,6 +91,12 @@ final class StatusTableViewController: LoopChartsTableViewController {
         statusTableViewModel.settingsViewModel.cgmManagerSettingsViewModel.didTapAdd = { [weak self] in
             self?.addCGMManager(withIdentifier: $0.identifier)
         }
+        statusTableViewModel.settingsViewModel.watchManagerSettingsViewModel.didTap = { [weak self] in
+            self?.onWatchTapped()
+        }
+        statusTableViewModel.settingsViewModel.watchManagerSettingsViewModel.didTapAdd = { [weak self] in
+            self?.addWatchManager(withIdentifier: $0.identifier)
+        }
 
         tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
         tableView.register(InsulinSuspendedTableViewCell.nib(), forCellReuseIdentifier: InsulinSuspendedTableViewCell.className)
@@ -1673,6 +1679,17 @@ final class StatusTableViewController: LoopChartsTableViewController {
         show(settings, sender: self)
     }
 
+    private func onWatchTapped() {
+        guard let watchManager = deviceManager.watchManager else {
+            return
+        }
+
+        var settings = watchManager.settingsViewController(bluetoothProvider: deviceManager.bluetoothProvider, displayGlucosePreference: deviceManager.displayGlucosePreference, colorPalette: .default, allowDebugFeatures: FeatureFlags.allowDebugFeatures)
+        settings.watchManagerOnboardingDelegate = deviceManager
+        settings.completionDelegate = self
+        show(settings, sender: self)
+    }
+
     private func automaticDosingStatusChanged(_ automaticDosingEnabled: Bool) {
         log.debug("automaticDosingStatusChanged -> %{public}@", String(describing: automaticDosingEnabled))
         hudView?.loopCompletionHUD.loopIconClosed = automaticDosingEnabled
@@ -1871,6 +1888,8 @@ final class StatusTableViewController: LoopChartsTableViewController {
                 deviceManager.availableCGMManagers.map { PluginPickerView.Item($0) }
             case .pump:
                 deviceManager.availablePumpManagers.map { PluginPickerView.Item($0) }
+            case .watch:
+                deviceManager.availableWatchManagers.map { PluginPickerView.Item($0) }
             case .service:
                 servicesManager.availableServices.map { PluginPickerView.Item($0) }
             }
@@ -1882,6 +1901,8 @@ final class StatusTableViewController: LoopChartsTableViewController {
                 self?.addCGMManager(withIdentifier: identifier)
             case .pump:
                 self?.addPumpManager(withIdentifier: identifier)
+            case .watch:
+                self?.addWatchManager(withIdentifier: identifier)
             case .service:
                 self?.addService(withIdentifier: identifier)
             }
@@ -2192,6 +2213,24 @@ extension StatusTableViewController {
                 show(setupViewController, sender: self)
             case .createdAndOnboarded:
                 log.default("CGM manager with identifier '%{public}@' created and onboarded", identifier)
+            }
+        }
+    }
+}
+
+extension StatusTableViewController {
+    fileprivate func addWatchManager(withIdentifier identifier: String) {
+        switch deviceManager.setupWatchManager(withIdentifier: identifier) {
+        case .failure(let error):
+            log.error("Failure to setup watch manager with identifier '%{public}@': %{public}@", identifier, String(describing: error))
+        case .success(let success):
+            switch success {
+            case .userInteractionRequired(var setupViewController):
+                setupViewController.watchManagerOnboardingDelegate = deviceManager
+                setupViewController.completionDelegate = self
+                show(setupViewController, sender: self)
+            case .createdAndOnboarded:
+                log.default("Watch manager with identifier '%{public}@' created and onboarded", identifier)
             }
         }
     }

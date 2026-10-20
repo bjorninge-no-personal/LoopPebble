@@ -129,6 +129,48 @@ class PluginManager {
         })
     }
 
+    func getWatchManagerTypeByIdentifier(_ identifier: String) -> WatchManagerUI.Type? {
+        for bundle in pluginBundles {
+            if let name = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.watchManagerIdentifier.rawValue) as? String, name == identifier {
+                do {
+                    try bundle.loadAndReturnError()
+
+                    if let principalClass = bundle.principalClass as? NSObject.Type {
+
+                        if let plugin = principalClass.init() as? WatchManagerUIPlugin {
+                            return plugin.watchManagerType
+                        } else {
+                            fatalError("PrincipalClass does not conform to WatchManagerUIPlugin")
+                        }
+
+                    } else {
+                        fatalError("PrincipalClass not found")
+                    }
+                } catch let error {
+                    log.error("Error loading plugin: %{public}@", String(describing: error))
+                }
+            }
+        }
+        return nil
+    }
+
+    var availableWatchManagers: [WatchManagerDescriptor] {
+        pluginBundles.compactMap({ (bundle) -> WatchManagerDescriptor? in
+            guard let title = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.watchManagerDisplayName.rawValue) as? String,
+                  let identifier = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.watchManagerIdentifier.rawValue) as? String else {
+                return nil
+            }
+
+            return WatchManagerDescriptor(
+                identifier: identifier,
+                localizedTitle: title,
+                subtitle: bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.pluginSubtitle.rawValue) as? String,
+                manufacturer: bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.deviceManufacturer.rawValue) as? String,
+                image: getWatchManagerTypeByIdentifier(identifier)?.pickerImage
+            )
+        })
+    }
+
     func getServiceTypeByIdentifier(_ identifier: String) -> ServiceUI.Type? {
         for bundle in pluginBundles {
             if let name = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.serviceIdentifier.rawValue) as? String, name == identifier {
@@ -275,9 +317,10 @@ extension Bundle {
     var isStatefulPlugin: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.statefulPluginIdentifier.rawValue) as? String != nil }
     var isServicePlugin: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.serviceIdentifier.rawValue) as? String != nil }
     var isOnboardingPlugin: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.onboardingIdentifier.rawValue) as? String != nil }
+    var isWatchManagerPlugin: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.watchManagerIdentifier.rawValue) as? String != nil }
     var isSupportPlugin: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.supportIdentifier.rawValue) as? String != nil }
 
-    var isLoopPlugin: Bool { isPumpManagerPlugin || isCGMManagerPlugin || isStatefulPlugin || isServicePlugin || isOnboardingPlugin || isSupportPlugin }
+    var isLoopPlugin: Bool { isPumpManagerPlugin || isCGMManagerPlugin || isWatchManagerPlugin || isStatefulPlugin || isServicePlugin || isOnboardingPlugin || isSupportPlugin }
 
     var isLoopExtension: Bool { object(forInfoDictionaryKey: LoopPluginBundleKey.extensionIdentifier.rawValue) as? String != nil }
 

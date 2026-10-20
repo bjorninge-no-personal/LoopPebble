@@ -166,6 +166,19 @@ final class DeviceDataManager {
     @PersistedProperty(key: "PumpManagerState")
     var rawPumpManager: PumpManager.RawValue?
 
+    // MARK: - Watch
+
+    var watchManager: WatchManagerUI? {
+        didSet {
+            setupWatch()
+            NotificationCenter.default.post(name: .WatchManagerChanged, object: self, userInfo: nil)
+            rawWatchManager = watchManager?.rawValue
+        }
+    }
+
+    @PersistedProperty(key: "WatchManagerState")
+    var rawWatchManager: WatchManager.RawValue?
+
     
     var doseEnactor = DoseEnactor()
     
@@ -241,6 +254,9 @@ final class DeviceDataManager {
     private(set) var loopControl: LoopControl
 
     private weak var displayGlucoseUnitBroadcaster: DisplayGlucoseUnitBroadcaster?
+
+    /// Sends Loop's state to `watchManager`.
+    weak var watchManagerHost: WatchManagerHost?
 
     init(pluginManager: PluginManager,
          deviceLog: PersistentDeviceLog,
@@ -350,6 +366,15 @@ final class DeviceDataManager {
                 // assign cgmManager = nil — that would delete the persisted CGMManagerState (same
                 // footgun as the pump path above). Preserve it for a future launch with the plugin.
                 log.error("Saved CGM manager plugin unavailable; preserving persisted CGMManagerState for a future launch")
+            }
+        }
+
+        if let watchManagerRawValue = rawWatchManager {
+            if let restoredWatchManager = watchManagerFromRawValue(watchManagerRawValue) {
+                watchManager = restoredWatchManager
+            } else {
+                // As for the pump and CGM: keep the saved state for a build that includes the plugin.
+                log.error("Saved watch manager plugin unavailable; preserving persisted WatchManagerState for a future launch")
             }
         }
     }
@@ -561,6 +586,37 @@ final class DeviceDataManager {
         return .success(result)
     }
 
+    var availableWatchManagers: [WatchManagerDescriptor] {
+        pluginManager.availableWatchManagers
+    }
+
+    struct UnknownWatchManagerIdentifierError: Error {}
+
+    func setupWatchManager(withIdentifier identifier: String) -> Swift.Result<SetupUIResult<WatchManagerViewController, WatchManagerUI>, Error> {
+        guard let watchManagerUIType = pluginManager.getWatchManagerTypeByIdentifier(identifier) else {
+            return .failure(UnknownWatchManagerIdentifierError())
+        }
+
+        let result = watchManagerUIType.setupViewController(bluetoothProvider: bluetoothProvider, displayGlucosePreference: displayGlucosePreference, colorPalette: .default, allowDebugFeatures: FeatureFlags.allowDebugFeatures)
+        if case .createdAndOnboarded(let watchManagerUI) = result {
+            watchManagerOnboarding(didCreateWatchManager: watchManagerUI)
+            watchManagerOnboarding(didOnboardWatchManager: watchManagerUI)
+        }
+
+        return .success(result)
+    }
+
+    func watchManagerFromRawValue(_ rawValue: [String: Any]) -> WatchManagerUI? {
+        guard let managerIdentifier = rawValue["managerIdentifier"] as? String,
+              let rawState = rawValue["state"] as? WatchManager.RawStateValue,
+              let Manager = pluginManager.getWatchManagerTypeByIdentifier(managerIdentifier)
+        else {
+            return nil
+        }
+
+        return Manager.init(rawState: rawState)
+    }
+
     public func cgmManagerTypeByIdentifier(_ identifier: String) -> CGMManagerUI.Type? {
         return pluginManager.getCGMManagerTypeByIdentifier(identifier) ?? staticCGMManagersByIdentifier[identifier] as? CGMManagerUI.Type
     }
@@ -703,6 +759,20 @@ private extension DeviceDataManager {
         }
     }
 
+    func setupWatch() {
+        watchManager?.watchManagerDelegate = self
+        watchManager?.delegateQueue = DispatchQueue.main
+        reportPluginInitializationComplete()
+
+        if let watchManager = watchManager {
+            alertManager?.addAlertResponder(managerIdentifier: watchManager.pluginIdentifier,
+                                            alertResponder: watchManager)
+            alertManager?.addAlertSoundVendor(managerIdentifier: watchManager.pluginIdentifier,
+                                              soundVendor: watchManager)
+            displayGlucoseUnitBroadcaster?.addDisplayGlucoseUnitObserver(watchManager)
+        }
+    }
+
     func setupPump() {
         dispatchPrecondition(condition: .onQueue(.main))
 
@@ -783,6 +853,12 @@ extension DeviceDataManager {
         if let pumpManager = pumpManager {
             if !allActivePlugins.contains(where: { $0.pluginIdentifier == pumpManager.pluginIdentifier }) {
                 allActivePlugins.append(pumpManager)
+            }
+        }
+
+        if let watchManager = watchManager {
+            if !allActivePlugins.contains(where: { $0.pluginIdentifier == watchManager.pluginIdentifier }) {
+                allActivePlugins.append(watchManager)
             }
         }
         
@@ -1014,6 +1090,57 @@ extension DeviceDataManager: CGMManagerDelegate {
             }
             self.glucoseStore.managedDataInterval = manager.managedDataInterval
         }
+    }
+}
+
+// MARK: - WatchManagerDelegate
+extension DeviceDataManager: WatchManagerDelegate {
+    nonisolated
+    func watchManagerDidUpdateState(_ manager: WatchManager) {
+        Task { @MainActor in
+            rawWatchManager = manager.rawValue
+        }
+    }
+
+    nonisolated
+    func watchManagerWantsDeletion(_ manager: WatchManager) async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                self.log.default("Watch manager with identifier '%{public}@' wants deletion", manager.pluginIdentifier)
+                if let watchManager = self.watchManager {
+                    self.displayGlucoseUnitBroadcaster?.removeDisplayGlucoseUnitObserver(watchManager)
+                    self.alertManager?.removeAlertResponder(managerIdentifier: watchManager.pluginIdentifier)
+                    self.alertManager?.removeAlertSoundVendor(managerIdentifier: watchManager.pluginIdentifier)
+                }
+                self.watchManager = nil
+                continuation.resume()
+            }
+        }
+    }
+
+    nonisolated
+    func watchManager(_ manager: WatchManager, glucoseSamplesSince start: Date) async throws -> [StoredGlucoseSample] {
+        try await glucoseStore.getGlucoseSamples(start: start)
+    }
+
+    nonisolated
+    func watchManagerRequestsRefresh(_ manager: WatchManager) {
+        Task { @MainActor in
+            watchManagerHost?.refresh()
+        }
+    }
+}
+
+// MARK: - WatchManagerOnboardingDelegate
+extension DeviceDataManager: WatchManagerOnboardingDelegate {
+    func watchManagerOnboarding(didCreateWatchManager watchManager: WatchManagerUI) {
+        log.default("Watch manager with identifier '%{public}@' created", watchManager.pluginIdentifier)
+        self.watchManager = watchManager
+    }
+
+    func watchManagerOnboarding(didOnboardWatchManager watchManager: WatchManagerUI) {
+        log.default("Watch manager with identifier '%{public}@' onboarded", watchManager.pluginIdentifier)
+        watchManagerHost?.refresh()
     }
 }
 
@@ -1346,6 +1473,7 @@ extension DeviceDataManager: BolusDurationEstimator {
 extension Notification.Name {
     static let PumpManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.PumpManagerChanged")
     static let CGMManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.CGMManagerChanged")
+    static let WatchManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.WatchManagerChanged")
     static let PumpEventsAdded = Notification.Name(rawValue:  "com.loopKit.notification.PumpEventsAdded")
 }
 
@@ -1446,6 +1574,8 @@ extension DeviceDataManager: DeviceSupportDelegate {
             self.cgmManager != nil ? String(reflecting: self.cgmManager!) : "cgmManager: nil",
             "",
             self.pumpManager != nil ? String(reflecting: self.pumpManager!) : "pumpManager: nil",
+            "",
+            self.watchManager != nil ? String(reflecting: self.watchManager!) : "watchManager: nil",
             "",
             await deviceLog.generateDiagnosticReport()
             ]
