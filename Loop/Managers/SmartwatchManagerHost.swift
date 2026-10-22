@@ -17,7 +17,7 @@ import LoopKit
 /// Unchanged snapshots and alert states are not resent.
 ///
 /// For plugins that declare `.bolus`, it also issues the bolus context and
-/// decides on bolus requests with `WatchBolusPolicy`. Watch boluses stay off
+/// decides on bolus requests with `SmartwatchBolusPolicy`. Watch boluses stay off
 /// unless the build sets `WATCH_BOLUS_ENABLED` and the user allows them.
 @MainActor
 final class SmartwatchManagerHost {
@@ -31,10 +31,10 @@ final class SmartwatchManagerHost {
 
     private let log = DiagnosticLog(category: "SmartwatchManagerHost")
 
-    private var lastSentSnapshot: WatchStatusSnapshot?
-    private var lastSentAlertState: WatchGlucoseAlertState?
+    private var lastSentSnapshot: SmartwatchStatusSnapshot?
+    private var lastSentAlertState: SmartwatchGlucoseAlertState?
     /// The bolus context last sent, and what it was computed from.
-    private var bolusContext: WatchBolusContext?
+    private var bolusContext: SmartwatchBolusContext?
     private var bolusContextBasis: BolusContextBasis?
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
@@ -108,7 +108,7 @@ final class SmartwatchManagerHost {
         sendAlertStateIfNeeded()
 
         Task {
-            let snapshot: WatchStatusSnapshot
+            let snapshot: SmartwatchStatusSnapshot
             do {
                 snapshot = try await makeSnapshot(capabilities: capabilities)
             } catch {
@@ -126,17 +126,20 @@ final class SmartwatchManagerHost {
         }
     }
 
-    private func makeSnapshot(capabilities: WatchCapabilities) async throws -> WatchStatusSnapshot {
-        let historyStart = Date().addingTimeInterval(-WatchStatusSnapshot.historyInterval)
+    private func makeSnapshot(capabilities: SmartwatchCapabilities) async throws -> SmartwatchStatusSnapshot {
+        let historyStart = Date().addingTimeInterval(-SmartwatchStatusSnapshot.historyInterval)
         let samples = try await glucoseStore.getGlucoseSamples(start: historyStart)
 
-        var snapshot = WatchStatusSnapshot(
-            displayUnit: deviceManager.displayGlucosePreference.unit,
-            glucose: samples.last,
-            glucoseHistory: capabilities.contains(.history) ? samples : []
+        let readings = samples.map(SmartwatchGlucoseReading.init)
+        var snapshot = SmartwatchStatusSnapshot(
+            displayUnit: deviceManager.displayGlucosePreference.unit == .millimolesPerLiter ? .millimolesPerLiter : .milligramsPerDeciliter,
+            glucose: readings.last,
+            glucoseHistory: capabilities.contains(.history) ? readings : []
         )
         if capabilities.contains(.prediction) {
-            snapshot.predictedGlucose = loopDataManager.displayState.output?.predictedGlucose
+            snapshot.predictedGlucose = loopDataManager.displayState.output?.predictedGlucose.map {
+                SmartwatchPredictedGlucose(date: $0.startDate, milligramsPerDeciliter: $0.quantity.doubleValue(for: .milligramsPerDeciliter))
+            }
         }
         if capabilities.contains(.loopStatus) {
             snapshot.insulinOnBoard = loopDataManager.activeInsulin?.value
@@ -160,7 +163,7 @@ final class SmartwatchManagerHost {
         let latestGlucoseDate: Date?
     }
 
-    private func currentBolusContext(latestGlucoseDate: Date?) async -> WatchBolusContext {
+    private func currentBolusContext(latestGlucoseDate: Date?) async -> SmartwatchBolusContext {
         let recommendation = try? await loopDataManager.recommendManualBolus()
         let basis = BolusContextBasis(
             recommendedBolus: recommendation.flatMap { $0.amount > 0 ? $0.amount : nil },
@@ -171,7 +174,7 @@ final class SmartwatchManagerHost {
         if let bolusContext, basis == bolusContextBasis {
             return bolusContext
         }
-        let context = WatchBolusContext(
+        let context = SmartwatchBolusContext(
             token: UUID(),
             issuedAt: Date(),
             recommendedBolus: basis.recommendedBolus,
@@ -183,13 +186,13 @@ final class SmartwatchManagerHost {
         return context
     }
 
-    /// Delivers a bolus the plugin authenticated, if `WatchBolusPolicy` allows it.
+    /// Delivers a bolus the plugin authenticated, if `SmartwatchBolusPolicy` allows it.
     /// Every request and its outcome goes to the device log.
-    func handleBolusRequest(_ request: WatchBolusRequest, from manager: SmartwatchManager) async throws -> Double {
+    func handleBolusRequest(_ request: SmartwatchBolusRequest, from manager: SmartwatchManager) async throws -> Double {
         let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
         logBolus(manager, type: .receive, String(format: "Bolus request: %.3f U, confirmed at %@, context %@", request.units, String(describing: request.requestedAt), request.contextToken.uuidString))
 
-        let policy = WatchBolusPolicy(
+        let policy = SmartwatchBolusPolicy(
             isAllowed: FeatureFlags.watchBolusEnabled && UserDefaults.standard.allowWatchBolus && isCurrentWatch && type(of: manager).capabilities.contains(.bolus),
             currentContext: bolusContext,
             recentDeliveries: UserDefaults.standard.watchBolusDeliveries,
@@ -215,9 +218,9 @@ final class SmartwatchManagerHost {
         } catch {
             logBolus(manager, type: .error, "Watch bolus delivery failed: \(error)")
             refresh()
-            throw WatchBolusError.deliveryFailed(String(describing: error))
+            throw SmartwatchBolusError.deliveryFailed(String(describing: error))
         }
-        UserDefaults.standard.watchBolusDeliveries += [WatchBolusPolicy.Delivery(date: Date(), units: units)]
+        UserDefaults.standard.watchBolusDeliveries += [SmartwatchBolusPolicy.Delivery(date: Date(), units: units)]
         logBolus(manager, type: .delegateResponse, String(format: "Watch bolus of %.3f U delivered", units))
         refresh()
         return units
@@ -243,10 +246,10 @@ final class SmartwatchManagerHost {
 
     /// Loop's active glucose alert profile and alert mute. Low and high alerts
     /// repeat only when their snooze is enabled; urgent low always repeats.
-    private func alertState() -> WatchGlucoseAlertState {
+    private func alertState() -> SmartwatchGlucoseAlertState {
         let configuration = glucoseAlertManager.activeConfiguration()
-        return WatchGlucoseAlertState(
-            configuration: WatchGlucoseAlertState.Configuration(
+        return SmartwatchGlucoseAlertState(
+            configuration: SmartwatchGlucoseAlertState.Configuration(
                 urgentLowThreshold: configuration.urgentLowThresholdMgDL,
                 lowThreshold: configuration.lowThresholdMgDL,
                 highThreshold: configuration.highThresholdMgDL,
@@ -257,8 +260,21 @@ final class SmartwatchManagerHost {
                 lowRepeatInterval: configuration.lowSnoozeEnabled ? configuration.lowRepeatInterval : nil,
                 highRepeatInterval: configuration.highSnoozeEnabled ? configuration.highRepeatInterval : nil
             ),
-            loopAlertsActive: glucoseAlertManager.effectiveLoopAlertsEnabled,
+            hostAlertsActive: glucoseAlertManager.effectiveLoopAlertsEnabled,
             mutedUntil: alertMuter.configuration.shouldMute ? alertMuter.configuration.mutingEndTime : nil
+        )
+    }
+}
+
+extension SmartwatchGlucoseReading {
+    init(_ sample: StoredGlucoseSample) {
+        self.init(
+            date: sample.startDate,
+            milligramsPerDeciliter: sample.quantity.doubleValue(for: .milligramsPerDeciliter),
+            trend: sample.trend,
+            trendRate: sample.trendRate?.doubleValue(for: .milligramsPerDeciliterPerMinute),
+            wasUserEntered: sample.wasUserEntered,
+            isDisplayOnly: sample.isDisplayOnly
         )
     }
 }

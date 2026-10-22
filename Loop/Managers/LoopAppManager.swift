@@ -437,7 +437,7 @@ class LoopAppManager: NSObject {
             // The same path as remote boluses: maximum bolus check, notifications, upload.
             deliverBolus: { [weak servicesManager] units in
                 guard let servicesManager else {
-                    throw WatchBolusError.notAllowed
+                    throw SmartwatchBolusError.notAllowed
                 }
                 try await servicesManager.deliverRemoteBolus(amountInUnits: units, decisionId: nil)
             }

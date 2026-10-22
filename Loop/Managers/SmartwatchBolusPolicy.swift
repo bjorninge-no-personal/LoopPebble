@@ -1,5 +1,5 @@
 //
-//  WatchBolusPolicy.swift
+//  SmartwatchBolusPolicy.swift
 //  Loop
 //
 //  Copyright © 2026 LoopKit Authors. All rights reserved.
@@ -14,7 +14,7 @@ import LoopKit
 /// does not trust the plugin's numbers. It rejects requests that are not
 /// explicitly allowed, are old or made against an older state, exceed the
 /// maximum bolus or the current recommendation, or come too often.
-struct WatchBolusPolicy {
+struct SmartwatchBolusPolicy {
     /// A request older than this, measured from when the user confirmed it on the watch, is rejected.
     static let maximumRequestAge: TimeInterval = 30
     /// Allowed clock skew for requests dated in the future.
@@ -36,14 +36,14 @@ struct WatchBolusPolicy {
     /// Watch boluses are off unless the build enables them and the user turned them on.
     var isAllowed: Bool
     /// The context Loop last sent to the watch.
-    var currentContext: WatchBolusContext?
+    var currentContext: SmartwatchBolusContext?
     /// Watch boluses delivered recently, for the rate limits.
     var recentDeliveries: [Delivery]
     /// Rounds to a volume the pump supports.
     var roundToSupportedVolume: (Double) -> Double
 
     /// The units to deliver, rounded to a supported volume, or why not.
-    func evaluate(_ request: WatchBolusRequest, now: Date) -> Result<Double, WatchBolusError> {
+    func evaluate(_ request: SmartwatchBolusRequest, now: Date) -> Result<Double, SmartwatchBolusError> {
         guard isAllowed else {
             return .failure(.notAllowed)
         }
@@ -99,13 +99,13 @@ extension UserDefaults {
     }
 
     /// Watch boluses delivered in the last 24 hours, kept across launches for the rate limits.
-    var watchBolusDeliveries: [WatchBolusPolicy.Delivery] {
+    var watchBolusDeliveries: [SmartwatchBolusPolicy.Delivery] {
         get {
             (array(forKey: Self.watchBolusDeliveriesKey) as? [[String: Any]] ?? []).compactMap { entry in
                 guard let date = entry["date"] as? Date, let units = entry["units"] as? Double else {
                     return nil
                 }
-                return WatchBolusPolicy.Delivery(date: date, units: units)
+                return SmartwatchBolusPolicy.Delivery(date: date, units: units)
             }
         }
         set {

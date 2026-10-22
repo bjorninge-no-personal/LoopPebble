@@ -1,5 +1,5 @@
 //
-//  WatchBolusPolicyTests.swift
+//  SmartwatchBolusPolicyTests.swift
 //  LoopTests
 //
 //  Copyright © 2026 LoopKit Authors. All rights reserved.
@@ -9,21 +9,21 @@ import XCTest
 import LoopKit
 @testable import Loop
 
-final class WatchBolusPolicyTests: XCTestCase {
+final class SmartwatchBolusPolicyTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private let token = UUID()
 
-    private func context(recommended: Double? = 2.0, maximum: Double? = 5.0, issuedAgo: TimeInterval = 60) -> WatchBolusContext {
-        WatchBolusContext(token: token, issuedAt: now.addingTimeInterval(-issuedAgo), recommendedBolus: recommended, maximumBolus: maximum, supportedBolusVolumes: [])
+    private func context(recommended: Double? = 2.0, maximum: Double? = 5.0, issuedAgo: TimeInterval = 60) -> SmartwatchBolusContext {
+        SmartwatchBolusContext(token: token, issuedAt: now.addingTimeInterval(-issuedAgo), recommendedBolus: recommended, maximumBolus: maximum, supportedBolusVolumes: [])
     }
 
     /// Rounds down to 0.05 U, like a typical pump.
     private func policy(
         allowed: Bool = true,
-        context: WatchBolusContext? = nil,
-        deliveries: [WatchBolusPolicy.Delivery] = []
-    ) -> WatchBolusPolicy {
-        WatchBolusPolicy(
+        context: SmartwatchBolusContext? = nil,
+        deliveries: [SmartwatchBolusPolicy.Delivery] = []
+    ) -> SmartwatchBolusPolicy {
+        SmartwatchBolusPolicy(
             isAllowed: allowed,
             currentContext: context ?? self.context(),
             recentDeliveries: deliveries,
@@ -31,8 +31,8 @@ final class WatchBolusPolicyTests: XCTestCase {
         )
     }
 
-    private func request(_ units: Double, token: UUID? = nil, confirmedAgo: TimeInterval = 5) -> WatchBolusRequest {
-        WatchBolusRequest(units: units, contextToken: token ?? self.token, requestedAt: now.addingTimeInterval(-confirmedAgo))
+    private func request(_ units: Double, token: UUID? = nil, confirmedAgo: TimeInterval = 5) -> SmartwatchBolusRequest {
+        SmartwatchBolusRequest(units: units, contextToken: token ?? self.token, requestedAt: now.addingTimeInterval(-confirmedAgo))
     }
 
     func testDeliversARoundedBolusWithinTheRecommendation() throws {
@@ -64,7 +64,7 @@ final class WatchBolusPolicyTests: XCTestCase {
     func testRejectsAStaleOrMissingContext() {
         XCTAssertEqual(policy().evaluate(request(1, token: UUID()), now: now), .failure(.staleContext))
         XCTAssertEqual(policy(context: context(issuedAgo: 16 * 60)).evaluate(request(1), now: now), .failure(.staleContext))
-        let noContext = WatchBolusPolicy(isAllowed: true, currentContext: nil, recentDeliveries: [], roundToSupportedVolume: { $0 })
+        let noContext = SmartwatchBolusPolicy(isAllowed: true, currentContext: nil, recentDeliveries: [], roundToSupportedVolume: { $0 })
         XCTAssertEqual(noContext.evaluate(request(1), now: now), .failure(.staleContext))
     }
 
@@ -82,21 +82,21 @@ final class WatchBolusPolicyTests: XCTestCase {
     }
 
     func testRateLimitsWatchBoluses() {
-        let recent = [WatchBolusPolicy.Delivery(date: now.addingTimeInterval(-10 * 60), units: 1)]
+        let recent = [SmartwatchBolusPolicy.Delivery(date: now.addingTimeInterval(-10 * 60), units: 1)]
         XCTAssertEqual(policy(deliveries: recent).evaluate(request(1), now: now), .failure(.rateLimited))
-        let older = [WatchBolusPolicy.Delivery(date: now.addingTimeInterval(-16 * 60), units: 1)]
+        let older = [SmartwatchBolusPolicy.Delivery(date: now.addingTimeInterval(-16 * 60), units: 1)]
         XCTAssertNotNil(try? policy(deliveries: older).evaluate(request(1), now: now).get())
     }
 
     func testLimitsTheDailyTotal() {
         // Daily limit is 2 × the 5 U maximum bolus = 10 U.
         let earlier = [
-            WatchBolusPolicy.Delivery(date: now.addingTimeInterval(-20 * 60 * 60), units: 5),
-            WatchBolusPolicy.Delivery(date: now.addingTimeInterval(-2 * 60 * 60), units: 4),
+            SmartwatchBolusPolicy.Delivery(date: now.addingTimeInterval(-20 * 60 * 60), units: 5),
+            SmartwatchBolusPolicy.Delivery(date: now.addingTimeInterval(-2 * 60 * 60), units: 4),
         ]
         XCTAssertEqual(policy(deliveries: earlier).evaluate(request(1.5), now: now), .failure(.dailyLimitReached))
         XCTAssertNotNil(try? policy(deliveries: earlier).evaluate(request(1), now: now).get())
-        let yesterday = [WatchBolusPolicy.Delivery(date: now.addingTimeInterval(-25 * 60 * 60), units: 9)]
+        let yesterday = [SmartwatchBolusPolicy.Delivery(date: now.addingTimeInterval(-25 * 60 * 60), units: 9)]
         XCTAssertNotNil(try? policy(deliveries: yesterday).evaluate(request(2), now: now).get())
     }
 }

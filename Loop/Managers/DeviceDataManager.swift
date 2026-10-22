@@ -176,7 +176,7 @@ final class DeviceDataManager {
         }
     }
 
-    @PersistedProperty(key: "WatchManagerState")
+    @PersistedProperty(key: "SmartwatchManagerState")
     var rawSmartwatchManager: SmartwatchManager.RawValue?
 
     
@@ -769,7 +769,6 @@ private extension DeviceDataManager {
                                             alertResponder: smartwatchManager)
             alertManager?.addAlertSoundVendor(managerIdentifier: smartwatchManager.pluginIdentifier,
                                               soundVendor: smartwatchManager)
-            displayGlucoseUnitBroadcaster?.addDisplayGlucoseUnitObserver(smartwatchManager)
         }
     }
 
@@ -1108,7 +1107,6 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
             DispatchQueue.main.async {
                 self.log.default("Watch manager with identifier '%{public}@' wants deletion", manager.pluginIdentifier)
                 if let smartwatchManager = self.smartwatchManager {
-                    self.displayGlucoseUnitBroadcaster?.removeDisplayGlucoseUnitObserver(smartwatchManager)
                     self.alertManager?.removeAlertResponder(managerIdentifier: smartwatchManager.pluginIdentifier)
                     self.alertManager?.removeAlertSoundVendor(managerIdentifier: smartwatchManager.pluginIdentifier)
                 }
@@ -1119,8 +1117,8 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     }
 
     nonisolated
-    func smartwatchManager(_ manager: SmartwatchManager, glucoseSamplesSince start: Date) async throws -> [StoredGlucoseSample] {
-        try await glucoseStore.getGlucoseSamples(start: start)
+    func smartwatchManager(_ manager: SmartwatchManager, glucoseSamplesSince start: Date) async throws -> [SmartwatchGlucoseReading] {
+        try await glucoseStore.getGlucoseSamples(start: start).map(SmartwatchGlucoseReading.init)
     }
 
     nonisolated
@@ -1131,9 +1129,9 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     }
 
     nonisolated
-    func smartwatchManager(_ manager: SmartwatchManager, requestBolus request: WatchBolusRequest) async throws -> Double {
+    func smartwatchManager(_ manager: SmartwatchManager, requestBolus request: SmartwatchBolusRequest) async throws -> Double {
         guard let host = await smartwatchManagerHost else {
-            throw WatchBolusError.notAllowed
+            throw SmartwatchBolusError.notAllowed
         }
         return try await host.handleBolusRequest(request, from: manager)
     }

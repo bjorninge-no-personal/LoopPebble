@@ -460,7 +460,7 @@ extension SettingsView {
             // out until a watch plugin authenticates requests end to end (an encrypted
             // link plus a per-watch key; see the SmartwatchManager proposal, section 10).
             // Enabling also needs the WATCH_BOLUS_ENABLED build flag; Loop's
-            // WatchBolusPolicy still checks every request.
+            // SmartwatchBolusPolicy still checks every request.
             //
             // if FeatureFlags.watchBolusEnabled, viewModel.smartwatchManagerSettingsViewModel.isSetUp() {
             //     Toggle(isOn: $allowWatchBolus) {
