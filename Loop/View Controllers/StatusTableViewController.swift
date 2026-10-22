@@ -91,11 +91,11 @@ final class StatusTableViewController: LoopChartsTableViewController {
         statusTableViewModel.settingsViewModel.cgmManagerSettingsViewModel.didTapAdd = { [weak self] in
             self?.addCGMManager(withIdentifier: $0.identifier)
         }
-        statusTableViewModel.settingsViewModel.watchManagerSettingsViewModel.didTap = { [weak self] in
+        statusTableViewModel.settingsViewModel.smartwatchManagerSettingsViewModel.didTap = { [weak self] in
             self?.onWatchTapped()
         }
-        statusTableViewModel.settingsViewModel.watchManagerSettingsViewModel.didTapAdd = { [weak self] in
-            self?.addWatchManager(withIdentifier: $0.identifier)
+        statusTableViewModel.settingsViewModel.smartwatchManagerSettingsViewModel.didTapAdd = { [weak self] in
+            self?.addSmartwatchManager(withIdentifier: $0.identifier)
         }
 
         tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
@@ -1696,12 +1696,12 @@ final class StatusTableViewController: LoopChartsTableViewController {
     }
 
     private func onWatchTapped() {
-        guard let watchManager = deviceManager.watchManager else {
+        guard let smartwatchManager = deviceManager.smartwatchManager else {
             return
         }
 
-        var settings = watchManager.settingsViewController(bluetoothProvider: deviceManager.bluetoothProvider, displayGlucosePreference: deviceManager.displayGlucosePreference, colorPalette: .default, allowDebugFeatures: FeatureFlags.allowDebugFeatures)
-        settings.watchManagerOnboardingDelegate = deviceManager
+        var settings = smartwatchManager.settingsViewController(bluetoothProvider: deviceManager.bluetoothProvider, displayGlucosePreference: deviceManager.displayGlucosePreference, colorPalette: .default, allowDebugFeatures: FeatureFlags.allowDebugFeatures)
+        settings.smartwatchManagerOnboardingDelegate = deviceManager
         settings.completionDelegate = self
         show(settings, sender: self)
     }
@@ -1905,7 +1905,7 @@ final class StatusTableViewController: LoopChartsTableViewController {
             case .pump:
                 deviceManager.availablePumpManagers.map { PluginPickerView.Item($0) }
             case .watch:
-                deviceManager.availableWatchManagers.map { PluginPickerView.Item($0) }
+                deviceManager.availableSmartwatchManagers.map { PluginPickerView.Item($0) }
             case .service:
                 servicesManager.availableServices.map { PluginPickerView.Item($0) }
             }
@@ -1918,7 +1918,7 @@ final class StatusTableViewController: LoopChartsTableViewController {
             case .pump:
                 self?.addPumpManager(withIdentifier: identifier)
             case .watch:
-                self?.addWatchManager(withIdentifier: identifier)
+                self?.addSmartwatchManager(withIdentifier: identifier)
             case .service:
                 self?.addService(withIdentifier: identifier)
             }
@@ -2235,14 +2235,14 @@ extension StatusTableViewController {
 }
 
 extension StatusTableViewController {
-    fileprivate func addWatchManager(withIdentifier identifier: String) {
-        switch deviceManager.setupWatchManager(withIdentifier: identifier) {
+    fileprivate func addSmartwatchManager(withIdentifier identifier: String) {
+        switch deviceManager.setupSmartwatchManager(withIdentifier: identifier) {
         case .failure(let error):
             log.error("Failure to setup watch manager with identifier '%{public}@': %{public}@", identifier, String(describing: error))
         case .success(let success):
             switch success {
             case .userInteractionRequired(var setupViewController):
-                setupViewController.watchManagerOnboardingDelegate = deviceManager
+                setupViewController.smartwatchManagerOnboardingDelegate = deviceManager
                 setupViewController.completionDelegate = self
                 show(setupViewController, sender: self)
             case .createdAndOnboarded:

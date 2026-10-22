@@ -192,7 +192,7 @@ extension PluginPickerView.Item {
         self.init(id: descriptor.identifier, title: descriptor.localizedTitle, subtitle: descriptor.subtitle, group: descriptor.manufacturer, image: descriptor.image)
     }
 
-    init(_ descriptor: WatchManagerDescriptor) {
+    init(_ descriptor: SmartwatchManagerDescriptor) {
         self.init(id: descriptor.identifier, title: descriptor.localizedTitle, subtitle: descriptor.subtitle, group: descriptor.manufacturer, image: descriptor.image)
     }
 

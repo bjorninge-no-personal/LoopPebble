@@ -1,5 +1,5 @@
 //
-//  WatchManagerHost.swift
+//  SmartwatchManagerHost.swift
 //  Loop
 //
 //  Copyright © 2026 LoopKit Authors. All rights reserved.
@@ -20,7 +20,7 @@ import LoopKit
 /// decides on bolus requests with `WatchBolusPolicy`. Watch boluses stay off
 /// unless the build sets `WATCH_BOLUS_ENABLED` and the user allows them.
 @MainActor
-final class WatchManagerHost {
+final class SmartwatchManagerHost {
     private unowned let deviceManager: DeviceDataManager
     private unowned let loopDataManager: LoopDataManager
     private unowned let settingsManager: SettingsManager
@@ -29,7 +29,7 @@ final class WatchManagerHost {
     private let alertMuter: AlertMuter
     private let deliverBolus: (Double) async throws -> Void
 
-    private let log = DiagnosticLog(category: "WatchManagerHost")
+    private let log = DiagnosticLog(category: "SmartwatchManagerHost")
 
     private var lastSentSnapshot: WatchStatusSnapshot?
     private var lastSentAlertState: WatchGlucoseAlertState?
@@ -70,7 +70,7 @@ final class WatchManagerHost {
             NotificationCenter.default.addObserver(forName: .LoopCycleCompleted, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.update() }
             },
-            NotificationCenter.default.addObserver(forName: .WatchManagerChanged, object: deviceManager, queue: .main) { [weak self] _ in
+            NotificationCenter.default.addObserver(forName: .SmartwatchManagerChanged, object: deviceManager, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refresh() }
             },
         ]
@@ -98,12 +98,12 @@ final class WatchManagerHost {
     }
 
     private func update() {
-        guard let watchManager = deviceManager.watchManager else {
+        guard let smartwatchManager = deviceManager.smartwatchManager else {
             return
         }
         updateGeneration += 1
         let generation = updateGeneration
-        let capabilities = type(of: watchManager).capabilities
+        let capabilities = type(of: smartwatchManager).capabilities
 
         sendAlertStateIfNeeded()
 
@@ -116,7 +116,7 @@ final class WatchManagerHost {
                 return
             }
             guard generation == updateGeneration,
-                  let current = deviceManager.watchManager, (current as AnyObject) === (watchManager as AnyObject),
+                  let current = deviceManager.smartwatchManager, (current as AnyObject) === (smartwatchManager as AnyObject),
                   snapshot != lastSentSnapshot
             else {
                 return
@@ -185,8 +185,8 @@ final class WatchManagerHost {
 
     /// Delivers a bolus the plugin authenticated, if `WatchBolusPolicy` allows it.
     /// Every request and its outcome goes to the device log.
-    func handleBolusRequest(_ request: WatchBolusRequest, from manager: WatchManager) async throws -> Double {
-        let isCurrentWatch = deviceManager.watchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
+    func handleBolusRequest(_ request: WatchBolusRequest, from manager: SmartwatchManager) async throws -> Double {
+        let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
         logBolus(manager, type: .receive, String(format: "Bolus request: %.3f U, confirmed at %@, context %@", request.units, String(describing: request.requestedAt), request.contextToken.uuidString))
 
         let policy = WatchBolusPolicy(
@@ -223,13 +223,13 @@ final class WatchManagerHost {
         return units
     }
 
-    private func logBolus(_ manager: WatchManager, type: DeviceLogEntryType, _ message: String) {
+    private func logBolus(_ manager: SmartwatchManager, type: DeviceLogEntryType, _ message: String) {
         deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: type, message: message, completion: nil)
     }
 
     private func sendAlertStateIfNeeded() {
-        guard let watchManager = deviceManager.watchManager,
-              type(of: watchManager).capabilities.contains(.alerts)
+        guard let smartwatchManager = deviceManager.smartwatchManager,
+              type(of: smartwatchManager).capabilities.contains(.alerts)
         else {
             return
         }
@@ -238,7 +238,7 @@ final class WatchManagerHost {
             return
         }
         lastSentAlertState = state
-        watchManager.glucoseAlertStateDidUpdate(state)
+        smartwatchManager.glucoseAlertStateDidUpdate(state)
     }
 
     /// Loop's active glucose alert profile and alert mute. Low and high alerts

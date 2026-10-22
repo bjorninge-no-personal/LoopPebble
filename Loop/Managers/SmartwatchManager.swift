@@ -1,5 +1,5 @@
 //
-//  WatchManager.swift
+//  SmartwatchManager.swift
 //  Loop
 //
 //  Copyright © 2026 LoopKit Authors. All rights reserved.
@@ -7,7 +7,7 @@
 
 import LoopKit
 
-extension WatchManager {
+extension SmartwatchManager {
 
     typealias RawValue = [String: Any]
 

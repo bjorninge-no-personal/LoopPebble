@@ -48,7 +48,7 @@ public class DeviceViewModel<T>: ObservableObject {
 
 public typealias CGMManagerViewModel = DeviceViewModel<CGMManagerDescriptor>
 public typealias PumpManagerViewModel = DeviceViewModel<PumpManagerDescriptor>
-public typealias WatchManagerViewModel = DeviceViewModel<WatchManagerDescriptor>
+public typealias SmartwatchManagerViewModel = DeviceViewModel<SmartwatchManagerDescriptor>
 
 public protocol SettingsViewModelDelegate: AnyObject {
     func dosingEnabledChanged(_: Bool)
@@ -75,10 +75,10 @@ class SettingsViewModel {
     let pumpManagerSettingsViewModel: PumpManagerViewModel
     let cgmManagerSettingsViewModel: CGMManagerViewModel
     /// Shown in Settings → Devices only when a watch plugin is installed.
-    var watchManagerSettingsViewModel = WatchManagerViewModel()
+    var smartwatchManagerSettingsViewModel = SmartwatchManagerViewModel()
     /// Changes whenever a watch manager is added or removed, so the Devices row
     /// re-renders; the view model's closures are not observable.
-    private(set) var watchManagerRevision = 0
+    private(set) var smartwatchManagerRevision = 0
     let servicesViewModel: ServicesViewModel
     let therapySettings: () -> TherapySettings
     var isOnboardingComplete: Bool
@@ -181,9 +181,9 @@ class SettingsViewModel {
         self.deliveryDelegate = deliveryDelegate
         self.deviceManager = deviceManager
 
-        NotificationCenter.default.publisher(for: .WatchManagerChanged)
+        NotificationCenter.default.publisher(for: .SmartwatchManagerChanged)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.watchManagerRevision += 1 }
+            .sink { [weak self] _ in self?.smartwatchManagerRevision += 1 }
             .store(in: &cancellables)
 
         // This strangeness ensures the composed ViewModels' (ObservableObjects') changes get reported to this ViewModel (ObservableObject)

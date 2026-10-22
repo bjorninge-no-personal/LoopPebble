@@ -94,7 +94,7 @@ class LoopAppManager: NSObject {
     private var mealDetectionManager: MealDetectionManager!
     private var statusExtensionManager: ExtensionDataManager!
     private var watchManager: WatchDataManager!
-    private var watchManagerHost: WatchManagerHost!
+    private var smartwatchManagerHost: SmartwatchManagerHost!
     private var crashRecoveryManager: CrashRecoveryManager!
     private var cgmEventStore: CgmEventStore!
     private var servicesManager: ServicesManager!
@@ -427,7 +427,7 @@ class LoopAppManager: NSObject {
             healthStore: healthStore
         )
 
-        watchManagerHost = WatchManagerHost(
+        smartwatchManagerHost = SmartwatchManagerHost(
             deviceManager: deviceDataManager,
             loopDataManager: loopDataManager,
             settingsManager: settingsManager,
@@ -442,7 +442,7 @@ class LoopAppManager: NSObject {
                 try await servicesManager.deliverRemoteBolus(amountInUnits: units, decisionId: nil)
             }
         )
-        deviceDataManager.watchManagerHost = watchManagerHost
+        deviceDataManager.smartwatchManagerHost = smartwatchManagerHost
 
         self.mealDetectionManager = MealDetectionManager(
             algorithmStateProvider: loopDataManager,
@@ -622,11 +622,11 @@ class LoopAppManager: NSObject {
         )
         
         viewModel.favoriteFoodInsightsDelegate = loopDataManager
-        viewModel.watchManagerSettingsViewModel = WatchManagerViewModel(
-            image: {[weak self] in self?.deviceDataManager.watchManager?.smallImage },
-            name: {[weak self] in self?.deviceDataManager.watchManager?.localizedTitle ?? "" },
-            isSetUp: {[weak self] in self?.deviceDataManager.watchManager?.isOnboarded == true },
-            availableDevices: deviceDataManager.availableWatchManagers
+        viewModel.smartwatchManagerSettingsViewModel = SmartwatchManagerViewModel(
+            image: {[weak self] in self?.deviceDataManager.smartwatchManager?.smallImage },
+            name: {[weak self] in self?.deviceDataManager.smartwatchManager?.localizedTitle ?? "" },
+            isSetUp: {[weak self] in self?.deviceDataManager.smartwatchManager?.isOnboarded == true },
+            availableDevices: deviceDataManager.availableSmartwatchManagers
         )
         
         return viewModel

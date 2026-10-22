@@ -458,11 +458,11 @@ extension SettingsView {
 
             // Boluses from the watch. Off by default, and the toggle stays commented
             // out until a watch plugin authenticates requests end to end (an encrypted
-            // link plus a per-watch key; see the WatchManager proposal, section 10).
+            // link plus a per-watch key; see the SmartwatchManager proposal, section 10).
             // Enabling also needs the WATCH_BOLUS_ENABLED build flag; Loop's
             // WatchBolusPolicy still checks every request.
             //
-            // if FeatureFlags.watchBolusEnabled, viewModel.watchManagerSettingsViewModel.isSetUp() {
+            // if FeatureFlags.watchBolusEnabled, viewModel.smartwatchManagerSettingsViewModel.isSetUp() {
             //     Toggle(isOn: $allowWatchBolus) {
             //         VStack(alignment: .leading) {
             //             Text(NSLocalizedString("Allow Boluses from Watch", comment: "Toggle allowing boluses requested from a watch plugin"))
@@ -512,14 +512,14 @@ extension SettingsView {
     /// Only shown when a watch plugin is installed or set up.
     @ViewBuilder
     private var watchSection: some View {
-        let _ = viewModel.watchManagerRevision
-        if viewModel.watchManagerSettingsViewModel.isSetUp() {
-            LargeButton(action: self.viewModel.watchManagerSettingsViewModel.didTap,
+        let _ = viewModel.smartwatchManagerRevision
+        if viewModel.smartwatchManagerSettingsViewModel.isSetUp() {
+            LargeButton(action: self.viewModel.smartwatchManagerSettingsViewModel.didTap,
                         includeArrow: true,
-                        imageView: deviceImage(uiImage: viewModel.watchManagerSettingsViewModel.image()),
-                        label: viewModel.watchManagerSettingsViewModel.name(),
+                        imageView: deviceImage(uiImage: viewModel.smartwatchManagerSettingsViewModel.image()),
+                        label: viewModel.smartwatchManagerSettingsViewModel.name(),
                         descriptiveText: NSLocalizedString("Watch", comment: "Descriptive text for a watch plugin in Settings → Devices"))
-        } else if !viewModel.watchManagerSettingsViewModel.availableDevices.isEmpty {
+        } else if !viewModel.smartwatchManagerSettingsViewModel.availableDevices.isEmpty {
             LargeButton(action: { pluginPicker = .watchPicker },
                         includeArrow: false,
                         imageView: plusImage,
@@ -568,10 +568,10 @@ extension SettingsView {
         case .watchPicker:
             PluginPickerView(
                 pluginType: .watch,
-                items: viewModel.watchManagerSettingsViewModel.availableDevices.map { PluginPickerView.Item($0) },
+                items: viewModel.smartwatchManagerSettingsViewModel.availableDevices.map { PluginPickerView.Item($0) },
                 onSelect: { item in
-                    if let device = viewModel.watchManagerSettingsViewModel.availableDevices.first(where: { $0.identifier == item.id }) {
-                        pluginSelection = { viewModel.watchManagerSettingsViewModel.didTapAdd(device) }
+                    if let device = viewModel.smartwatchManagerSettingsViewModel.availableDevices.first(where: { $0.identifier == item.id }) {
+                        pluginSelection = { viewModel.smartwatchManagerSettingsViewModel.didTapAdd(device) }
                     }
                     pluginPicker = nil
                 },
