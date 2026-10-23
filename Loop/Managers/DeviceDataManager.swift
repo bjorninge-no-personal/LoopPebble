@@ -1146,8 +1146,9 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
 
     nonisolated
     func smartwatchManager(_ manager: SmartwatchManager, didAcknowledgeAlert identifier: SmartwatchAlertIdentifier) async {
-        // Host-issued alerts are not forwarded to the watch yet, so there is
-        // nothing to acknowledge back into the alert system. Record it for now.
+        // Loop's alerts are forwarded to the watch, but an acknowledgement from
+        // the watch is only recorded here; it doesn't acknowledge the alert in
+        // Loop. (The Luped watchface never sends one.)
         await MainActor.run {
             deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .receive, message: "Watch acknowledged alert \(identifier.value)", completion: nil)
         }
