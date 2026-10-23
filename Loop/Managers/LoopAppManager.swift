@@ -220,8 +220,6 @@ class LoopAppManager: NSObject {
 
         alertPermissionsChecker = AlertPermissionsChecker()
         alertPermissionsChecker.delegate = alertManager
-        
-        trustedTimeChecker = LoopTrustedTimeChecker(alertManager: alertManager)
 
         settingsManager = SettingsManager(
             cacheStore: cacheStore,
@@ -344,6 +342,8 @@ class LoopAppManager: NSObject {
             }
         }
         deviceLog = PersistentDeviceLog(storageFile: deviceLogDirectory.appendingPathComponent("Storage.sqlite"), maxEntryAge: localCacheDuration)
+
+        trustedTimeChecker = LoopTrustedTimeChecker(alertManager: alertManager, deviceLog: deviceLog)
 
 
         remoteDataServicesManager = RemoteDataServicesManager(
