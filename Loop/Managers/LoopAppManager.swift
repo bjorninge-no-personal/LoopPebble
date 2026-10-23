@@ -441,6 +441,8 @@ class LoopAppManager: NSObject {
             }
         )
         deviceDataManager.smartwatchManagerHost = smartwatchManagerHost
+        // Forward Loop's alerts to the watch plugin so it buzzes in step with the phone.
+        alertManager.addAlertForwarder(smartwatchManagerHost)
 
         self.mealDetectionManager = MealDetectionManager(
             algorithmStateProvider: loopDataManager,

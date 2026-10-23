@@ -206,6 +206,53 @@ final class SmartwatchManagerHost {
     }
 }
 
+// MARK: - AlertForwarder
+
+extension SmartwatchManagerHost: AlertForwarder {
+    /// Forwards Loop's immediate, unmuted alerts to the watch so it buzzes in step
+    /// with the phone. Delayed/repeating alerts are left to the phone's notification
+    /// schedule, and muted alerts are suppressed — but critical alerts are never
+    /// muted, so they always reach the watch. Only plugins declaring `.alerts` are fed.
+    func alertManager(_ manager: AlertManager, didIssueAlert alert: Alert, muted: Bool) {
+        guard let smartwatchManager = deviceManager.smartwatchManager,
+              type(of: smartwatchManager).capabilities.contains(.alerts),
+              case .immediate = alert.trigger,
+              !muted
+        else {
+            return
+        }
+        let content = alert.foregroundContent ?? alert.backgroundContent
+        smartwatchManager.watchAlertDidIssue(
+            SmartwatchAlert(
+                identifier: SmartwatchAlertIdentifier(alert.identifier.value),
+                level: alert.interruptionLevel.smartwatchAlertLevel,
+                title: content.title,
+                body: content.body,
+                issuedAt: Date()
+            )
+        )
+    }
+
+    func alertManager(_ manager: AlertManager, didRetractAlertWithIdentifier identifier: Alert.Identifier) {
+        guard let smartwatchManager = deviceManager.smartwatchManager,
+              type(of: smartwatchManager).capabilities.contains(.alerts)
+        else {
+            return
+        }
+        smartwatchManager.watchAlertDidRetract(SmartwatchAlertIdentifier(identifier.value))
+    }
+}
+
+private extension Alert.InterruptionLevel {
+    var smartwatchAlertLevel: SmartwatchAlertLevel {
+        switch self {
+        case .active: return .informational
+        case .timeSensitive: return .warning
+        case .critical: return .critical
+        }
+    }
+}
+
 extension SmartwatchGlucoseReading {
     init(_ sample: StoredGlucoseSample) {
         self.init(
