@@ -44888,6 +44888,63 @@
           }
         }
       }
+    },
+    "About this canceled bolus" : {
+      "comment" : "Accessibility label for the info button on a canceled automatic bolus"
+    },
+    "Alarms" : {
+      "comment" : "Alarms permission status text"
+    },
+    "Alarms are turned OFF" : {
+      "comment" : "Alarms disabled banner title"
+    },
+    "Alarms are turned OFF. Go to the App to fix the issue now." : {
+      "comment" : "Alarms disabled notification body"
+    },
+    "Alarms are turned OFF. Without Critical Alerts, Loop sounds urgent low and other critical safety alerts as alarms, so you may not hear them.\n\nTo fix the issue, tap ‘Settings’ and make sure Allow Alarms is turned ON." : {
+      "comment" : "Alarms disabled alert body"
+    },
+    "Automatic Bolus Canceled" : {
+      "comment" : "The alert title shown from the info button on a canceled automatic bolus"
+    },
+    "Create Issue Report" : {
+      "comment" : "The title of the action that opens the issue report screen"
+    },
+    "Damper Strength: %1$@%%" : {
+      "comment" : "Format string describing damper strength. (1: damper strength percentage)"
+    },
+    "Enable Negative Insulin Damper" : {
+      "comment" : "Title for Negative Insulin Damper toggle"
+    },
+    "Fix now by turning Alarms ON." : {
+      "comment" : "Alarms disabled banner body"
+    },
+    "How to request Critical Alerts" : {
+      "comment" : "Button text linking to instructions for requesting the Critical Alerts entitlement from Apple"
+    },
+    "Loop delivers an automatic bolus when its forecast stays above your correction range. If this dose was not what you expected, an issue report captures the glucose, insulin and settings behind the decision, and is the fastest way for someone to tell you why it happened.\n\nCreate one soon — the data it needs ages out." : {
+      "comment" : "The alert body shown from the info button on a canceled automatic bolus"
+    },
+    "Negative Insulin Damper" : {
+      "comment" : "Title for negative insulin damper experiment description\nTitle of negative insulin damper experiment\nTitle of the prediction input effect for negative insulin damper"
+    },
+    "Negative Insulin Damper (NID) is used to mitigate the effects of temporarily increased insulin sensitivity. Such increases can result in spending significant times beneath target and eventually going low. Loop may erroneously predict glucose going too high, resulting in excess insulin being delivered. To counteract this, NID acts as a dynamic damper on increases to  predicted glucose. The strength of this damper is controlled by the total predicted rise in glucose due to negative insulin. The greater the amount of negative insulin, the stronger the damper and the bigger the reductions. The calculation is done with a 15 minute lag." : {
+      "comment" : "Description of Negative Insulin Damper toggle."
+    },
+    "Not Available" : {
+      "comment" : "Critical Alerts status when the app was built without the entitlement"
+    },
+    "Not Now" : {
+      "comment" : "The title of the action that dismisses the canceled automatic bolus info alert"
+    },
+    "Reduces increases in glucose. The damper is stronger when there is more negative insulin" : {
+      "comment" : "Description of the prediction input effect for negative insulin damper"
+    },
+    "This is the development version of Loop. Any updates on this branch may contain new, untested features, and may be unsafe. If you are not a tester, please switch to main." : {
+      "comment" : "Body of the warning shown at launch on development builds"
+    },
+    "Turn On Alarms" : {
+      "comment" : "Alarms disabled alert title\nAlarms disabled notification title"
     }
   },
   "version" : "1.1"

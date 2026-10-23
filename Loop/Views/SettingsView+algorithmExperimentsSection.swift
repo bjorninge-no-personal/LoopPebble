@@ -41,6 +41,7 @@ public struct ExperimentRow: View {
 public struct ExperimentsSettingsView: View {
     @AppStorage(UserDefaults.Key.GlucoseBasedApplicationFactorEnabled.rawValue) private var isGlucoseBasedApplicationFactorEnabled = false
     @AppStorage(UserDefaults.Key.IntegralRetrospectiveCorrectionEnabled.rawValue) private var isIntegralRetrospectiveCorrectionEnabled = false
+    @AppStorage(UserDefaults.Key.NegativeInsulinDamperEnabled.rawValue) private var isNegativeInsulinDamperEnabled = false
     var automaticDosingStrategy: AutomaticDosingStrategy
 
     public var body: some View {
@@ -70,6 +71,11 @@ public struct ExperimentsSettingsView: View {
                         name: NSLocalizedString("Integral Retrospective Correction", comment: "Title of integral retrospective correction experiment"),
                         enabled: isIntegralRetrospectiveCorrectionEnabled)
                 }
+                NavigationLink(destination: NegativeInsulinDamperSelectionView(isNegativeInsulinDamperEnabled: $isNegativeInsulinDamperEnabled)) {
+                    ExperimentRow(
+                        name: NSLocalizedString("Negative Insulin Damper", comment: "Title of negative insulin damper experiment"),
+                        enabled: isNegativeInsulinDamperEnabled)
+                }
                 Spacer()
             }
             .padding()
@@ -83,6 +89,7 @@ extension UserDefaults {
     fileprivate enum Key: String {
         case GlucoseBasedApplicationFactorEnabled = "com.loopkit.algorithmExperiments.glucoseBasedApplicationFactorEnabled"
         case IntegralRetrospectiveCorrectionEnabled = "com.loopkit.algorithmExperiments.integralRetrospectiveCorrectionEnabled"
+        case NegativeInsulinDamperEnabled = "com.loopkit.algorithmExperiments.negativeInsulinDamperEnabled"
     }
 
     var glucoseBasedApplicationFactorEnabled: Bool {
@@ -100,6 +107,15 @@ extension UserDefaults {
         }
         set {
             set(newValue, forKey: Key.IntegralRetrospectiveCorrectionEnabled.rawValue)
+        }
+    }
+
+    var negativeInsulinDamperEnabled: Bool {
+        get {
+            bool(forKey: Key.NegativeInsulinDamperEnabled.rawValue) as Bool
+        }
+        set {
+            set(newValue, forKey: Key.NegativeInsulinDamperEnabled.rawValue)
         }
     }
 

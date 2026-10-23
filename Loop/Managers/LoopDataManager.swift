@@ -357,6 +357,82 @@ final class LoopDataManager: ObservableObject {
         }
     }
 
+    // MARK: Negative Insulin Damper (algorithm experiment)
+
+    static func calculateNegativeInsulinDamperAlpha(_ anchorAlpha: Double, _ anchorPoint: Double, _ marginalSlope: Double, _ posDeltaSum: Double) -> Double {
+        let linearScaleSlope = (1.0 - anchorAlpha)/anchorPoint // how alpha scales down in the linear scale region
+
+        // the slope in the linear scale region of alpha * posDeltaSum is 1 - 2*linearScaleSlope*posDeltaSum.
+        // the transitionPoint is where we transition from linear scale region to marginalSlope. The slope is continuous at this point
+        let transitionPoint = (1 - marginalSlope) / (2 * linearScaleSlope)
+
+        if posDeltaSum < transitionPoint { // linear scaling region
+            return 1 - linearScaleSlope * posDeltaSum
+        } else { // marginal slope region
+            let transitionValue = (1 - linearScaleSlope * transitionPoint) * transitionPoint
+            return (transitionValue + marginalSlope * (posDeltaSum - transitionPoint)) / posDeltaSum
+        }
+    }
+
+    /// Computes the Negative Insulin Damper coefficient in [0,1] for the given algorithm input, or nil.
+    /// Mirrors the dev/main computation: the predicted future rise attributable to negative insulin
+    /// (delivery below scheduled basal, up to 15 minutes ago) sets the damper strength.
+    private func computeNegativeInsulinDamper(for input: StoredDataAlgorithmInput) -> Double? {
+        guard let latestGlucose = input.glucoseHistory.last else { return nil }
+        let anchorDate = latestGlucose.startDate
+        let lastDoseStartDate = anchorDate.addingTimeInterval(.minutes(-15))
+
+        // Predicted insulin glucose-effect of everything delivered up to 15 minutes ago
+        // (doses starting later are dropped, basal-type doses trimmed at t-15, boluses kept whole).
+        let annotatedDoses = input.doses
+            .trimmed(to: lastDoseStartDate)
+            .annotated(with: input.basal)
+
+        // Fail safe (disable the damper) rather than trip glucoseEffects' ISF-coverage
+        // preconditionFailure, which would crash automated dosing.
+        for dose in annotatedDoses {
+            guard let isf = input.sensitivity.closestPrior(to: dose.startDate), isf.endDate >= dose.startDate else {
+                return nil
+            }
+        }
+
+        let effects = annotatedDoses.glucoseEffects(insulinSensitivityHistory: input.sensitivity, from: anchorDate.addingTimeInterval(.minutes(-5)))
+
+        // Sum of positive 5-min deltas — the predicted future rise from negative insulin.
+        var posDeltaSum = 0.0
+        for (offset, effect) in effects.enumerated() where offset > 0 {
+            let delta = effect.quantity.doubleValue(for: .milligramsPerDeciliter) - effects[offset - 1].quantity.doubleValue(for: .milligramsPerDeciliter)
+            posDeltaSum += max(0, delta)
+        }
+
+        guard let isf = input.sensitivity.closestPrior(to: anchorDate)?.value,
+              let basalRate = input.basal.closestPrior(to: anchorDate)?.value else {
+            return nil
+        }
+
+        // anchorScale is ~1 hour for rapid-acting adult, ~44 min for ultra-rapid insulins.
+        let anchorScale: Double
+        if let expModel = input.recommendationInsulinModel as? ExponentialInsulinModel {
+            anchorScale = 0.8 * expModel.peakActivityTime.hours
+        } else if let preset = input.recommendationInsulinModel as? ExponentialInsulinModelPreset {
+            anchorScale = 0.8 * preset.peakActivity.hours
+        } else {
+            anchorScale = 1.0
+        }
+
+        let marginalSlope = 0.05
+        let anchorAlpha = 0.75
+        // anchorPoint is unaffected by overrides (the basal and ISF multipliers cancel out).
+        let anchorPoint = anchorScale * basalRate * isf.doubleValue(for: .milligramsPerDeciliter)
+
+        // A 0 U/hr basal segment would make anchorPoint 0 → NaN → constant 95% damping; disable instead.
+        guard anchorPoint > 0 else { return nil }
+
+        let alpha = LoopDataManager.calculateNegativeInsulinDamperAlpha(anchorAlpha, anchorPoint, marginalSlope, posDeltaSum)
+        // alpha should never be less than marginalSlope
+        return max(0, 1 - max(marginalSlope, alpha))
+    }
+
     func fetchData(
         for baseTime: Date? = nil,
         presumePresetEndingNow: Bool = false,
@@ -554,7 +630,7 @@ final class LoopDataManager: ObservableObject {
             effectiveBolusApplicationFactor = nil
         }
 
-        return StoredDataAlgorithmInput(
+        var input = StoredDataAlgorithmInput(
             glucoseHistory: glucose,
             doses: dosesWithModel,
             carbEntries: carbEntries,
@@ -572,6 +648,12 @@ final class LoopDataManager: ObservableObject {
             recommendationInsulinModel: recommendationInsulinModel,
             recommendationType: .manualBolus,
             automaticBolusApplicationFactor: effectiveBolusApplicationFactor)
+
+        if UserDefaults.standard.negativeInsulinDamperEnabled {
+            input.negativeInsulinDamper = computeNegativeInsulinDamper(for: input)
+        }
+
+        return input
     }
 
     func loopingReEnabled() async {
@@ -1292,7 +1374,7 @@ extension StoredDataAlgorithmInput {
         return rval
     }
 
-    func predictGlucose(effectsOptions: AlgorithmEffectsOptions = .all) throws -> [PredictedGlucoseValue] {
+    func predictGlucose(effectsOptions: AlgorithmEffectsOptions = .all, applyNegativeInsulinDamper: Bool = true) throws -> [PredictedGlucoseValue] {
         let prediction = LoopAlgorithm.generatePrediction(
             start: predictionStart,
             glucoseHistory: glucoseHistory,
@@ -1304,7 +1386,8 @@ extension StoredDataAlgorithmInput {
             algorithmEffectsOptions: effectsOptions,
             useIntegralRetrospectiveCorrection: self.useIntegralRetrospectiveCorrection,
             useMidAbsorptionISF: true,
-            carbAbsorptionModel: self.carbAbsorptionModel.model
+            carbAbsorptionModel: self.carbAbsorptionModel.model,
+            negativeInsulinDamper: applyNegativeInsulinDamper ? negativeInsulinDamper : nil
         )
         return prediction.glucose
     }
