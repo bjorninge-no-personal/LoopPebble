@@ -24,8 +24,8 @@ public enum AlertUserNotificationUserInfoKey: String {
 /// A sink that renders Loop's alerts somewhere beyond the phone — such as a
 /// watch plugin that buzzes and shows them. Registered with `addAlertForwarder`
 /// and called from the same fan-out as the modal and notification schedulers, so
-/// it receives the `muted` determination Loop uses for notification sound
-/// (critical alerts are never muted).
+/// it receives the `muted` determination Loop uses for notification sound. That
+/// determination covers critical alerts too: Loop's mute delivers them at volume 0.
 @MainActor
 protocol AlertForwarder: AnyObject {
     func alertManager(_ manager: AlertManager, didIssueAlert alert: Alert, muted: Bool)

@@ -201,6 +201,10 @@ final class SmartwatchManagerHost {
         return units
     }
 
+    private func logAlert(_ manager: SmartwatchManager, _ message: String) {
+        deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .delegate, message: message, completion: nil)
+    }
+
     private func logBolus(_ manager: SmartwatchManager, type: DeviceLogEntryType, _ message: String) {
         deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: type, message: message, completion: nil)
     }
@@ -211,17 +215,27 @@ final class SmartwatchManagerHost {
 extension SmartwatchManagerHost: AlertForwarder {
     /// Forwards Loop's immediate, unmuted alerts to the watch so it buzzes in step
     /// with the phone. Delayed/repeating alerts are left to the phone's notification
-    /// schedule, and muted alerts are suppressed — but critical alerts are never
-    /// muted, so they always reach the watch. Only plugins declaring `.alerts` are fed.
+    /// schedule. Muted alerts are not sent: Loop's mute covers critical alerts too
+    /// (they are delivered at volume 0), so the watch follows the mute for every
+    /// alert. Each alert that isn't sent is logged with the reason. Only plugins
+    /// declaring `.alerts` are fed.
     func alertManager(_ manager: AlertManager, didIssueAlert alert: Alert, muted: Bool) {
         guard let smartwatchManager = deviceManager.smartwatchManager,
-              type(of: smartwatchManager).capabilities.contains(.alerts),
-              case .immediate = alert.trigger,
-              !muted
+              type(of: smartwatchManager).capabilities.contains(.alerts)
         else {
             return
         }
         let content = alert.foregroundContent ?? alert.backgroundContent
+        // Log why an alert doesn't reach the watch, so a watch alert level of 0
+        // can be explained from the device log.
+        guard case .immediate = alert.trigger else {
+            logAlert(smartwatchManager, "\(content.title) not sent to the watch: it is scheduled for later, and only immediate alerts are forwarded")
+            return
+        }
+        guard !muted else {
+            logAlert(smartwatchManager, "\(content.title) not sent to the watch: Loop's alerts are muted")
+            return
+        }
         smartwatchManager.watchAlertDidIssue(
             SmartwatchAlert(
                 identifier: SmartwatchAlertIdentifier(alert.identifier.value),
