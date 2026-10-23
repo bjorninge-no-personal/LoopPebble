@@ -1129,6 +1129,31 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     }
 
     nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, didLogEvent event: SmartwatchDeviceLogEntry) {
+        let type: DeviceLogEntryType
+        switch event.type {
+        case .send: type = .send
+        case .receive: type = .receive
+        case .error: type = .error
+        case .delegate: type = .delegate
+        case .delegateResponse: type = .delegateResponse
+        case .connection: type = .connection
+        }
+        Task { @MainActor in
+            deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: event.deviceIdentifier, type: type, message: event.message, completion: nil)
+        }
+    }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, didAcknowledgeAlert identifier: SmartwatchAlertIdentifier) async {
+        // Host-issued alerts are not forwarded to the watch yet, so there is
+        // nothing to acknowledge back into the alert system. Record it for now.
+        await MainActor.run {
+            deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .receive, message: "Watch acknowledged alert \(identifier.value)", completion: nil)
+        }
+    }
+
+    nonisolated
     func smartwatchManager(_ manager: SmartwatchManager, requestBolus request: SmartwatchBolusRequest) async throws -> Double {
         guard let host = await smartwatchManagerHost else {
             throw SmartwatchBolusError.notAllowed

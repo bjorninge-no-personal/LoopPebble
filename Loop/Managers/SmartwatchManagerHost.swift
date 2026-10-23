@@ -5,7 +5,6 @@
 //  Copyright © 2026 LoopKit Authors. All rights reserved.
 //
 
-import Combine
 import Foundation
 import LoopAlgorithm
 import LoopKit
@@ -14,7 +13,7 @@ import LoopKit
 ///
 /// A new glucose reading is sent as soon as the glucose store saves it, before
 /// the loop runs; the snapshot is sent again when the loop's output changes.
-/// Unchanged snapshots and alert states are not resent.
+/// Unchanged snapshots are not resent.
 ///
 /// For plugins that declare `.bolus`, it also issues the bolus context and
 /// decides on bolus requests with `SmartwatchBolusPolicy`. Watch boluses stay off
@@ -25,37 +24,29 @@ final class SmartwatchManagerHost {
     private unowned let loopDataManager: LoopDataManager
     private unowned let settingsManager: SettingsManager
     private let glucoseStore: GlucoseStore
-    private let glucoseAlertManager: GlucoseAlertManager
-    private let alertMuter: AlertMuter
     private let deliverBolus: (Double) async throws -> Void
 
     private let log = DiagnosticLog(category: "SmartwatchManagerHost")
 
     private var lastSentSnapshot: SmartwatchStatusSnapshot?
-    private var lastSentAlertState: SmartwatchGlucoseAlertState?
     /// The bolus context last sent, and what it was computed from.
     private var bolusContext: SmartwatchBolusContext?
     private var bolusContextBasis: BolusContextBasis?
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
     private var notificationObservers: [Any] = []
-    private var cancellables: Set<AnyCancellable> = []
 
     init(
         deviceManager: DeviceDataManager,
         loopDataManager: LoopDataManager,
         settingsManager: SettingsManager,
         glucoseStore: GlucoseStore,
-        glucoseAlertManager: GlucoseAlertManager,
-        alertMuter: AlertMuter,
         deliverBolus: @escaping (Double) async throws -> Void
     ) {
         self.deviceManager = deviceManager
         self.loopDataManager = loopDataManager
         self.settingsManager = settingsManager
         self.glucoseStore = glucoseStore
-        self.glucoseAlertManager = glucoseAlertManager
-        self.alertMuter = alertMuter
         self.deliverBolus = deliverBolus
 
         notificationObservers = [
@@ -74,26 +65,12 @@ final class SmartwatchManagerHost {
                 MainActor.assumeIsolated { self?.refresh() }
             },
         ]
-
-        // These publish before the new value is stored; the debounce reads it afterwards.
-        Publishers.Merge5(
-            glucoseAlertManager.$profiles.map { _ in () },
-            glucoseAlertManager.$activeProfileID.map { _ in () },
-            glucoseAlertManager.$cgmProvidesOwnAlerts.map { _ in () },
-            glucoseAlertManager.$loopAlertsOverrideForOwnAlertingCGM.map { _ in () },
-            alertMuter.$configuration.map { _ in () }
-        )
-        .dropFirst(5)
-        .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
-        .sink { [weak self] in self?.sendAlertStateIfNeeded() }
-        .store(in: &cancellables)
     }
 
-    /// Sends the current snapshot and alert state even if unchanged, for a new
-    /// watch manager or one that reconnected.
+    /// Sends the current snapshot even if unchanged, for a new watch manager or
+    /// one that reconnected.
     func refresh() {
         lastSentSnapshot = nil
-        lastSentAlertState = nil
         update()
     }
 
@@ -104,8 +81,6 @@ final class SmartwatchManagerHost {
         updateGeneration += 1
         let generation = updateGeneration
         let capabilities = type(of: smartwatchManager).capabilities
-
-        sendAlertStateIfNeeded()
 
         Task {
             let snapshot: SmartwatchStatusSnapshot
@@ -229,41 +204,6 @@ final class SmartwatchManagerHost {
     private func logBolus(_ manager: SmartwatchManager, type: DeviceLogEntryType, _ message: String) {
         deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: type, message: message, completion: nil)
     }
-
-    private func sendAlertStateIfNeeded() {
-        guard let smartwatchManager = deviceManager.smartwatchManager,
-              type(of: smartwatchManager).capabilities.contains(.alerts)
-        else {
-            return
-        }
-        let state = alertState()
-        guard state != lastSentAlertState else {
-            return
-        }
-        lastSentAlertState = state
-        smartwatchManager.glucoseAlertStateDidUpdate(state)
-    }
-
-    /// Loop's active glucose alert profile and alert mute. Low and high alerts
-    /// repeat only when their snooze is enabled; urgent low always repeats.
-    private func alertState() -> SmartwatchGlucoseAlertState {
-        let configuration = glucoseAlertManager.activeConfiguration()
-        return SmartwatchGlucoseAlertState(
-            configuration: SmartwatchGlucoseAlertState.Configuration(
-                urgentLowThreshold: configuration.urgentLowThresholdMgDL,
-                lowThreshold: configuration.lowThresholdMgDL,
-                highThreshold: configuration.highThresholdMgDL,
-                urgentLowEnabled: configuration.urgentLowEnabled,
-                lowEnabled: configuration.lowEnabled,
-                highEnabled: configuration.highEnabled,
-                urgentLowRepeatInterval: configuration.urgentLowRepeatInterval,
-                lowRepeatInterval: configuration.lowSnoozeEnabled ? configuration.lowRepeatInterval : nil,
-                highRepeatInterval: configuration.highSnoozeEnabled ? configuration.highRepeatInterval : nil
-            ),
-            hostAlertsActive: glucoseAlertManager.effectiveLoopAlertsEnabled,
-            mutedUntil: alertMuter.configuration.shouldMute ? alertMuter.configuration.mutingEndTime : nil
-        )
-    }
 }
 
 extension SmartwatchGlucoseReading {
@@ -271,7 +211,7 @@ extension SmartwatchGlucoseReading {
         self.init(
             date: sample.startDate,
             milligramsPerDeciliter: sample.quantity.doubleValue(for: .milligramsPerDeciliter),
-            trend: sample.trend,
+            trend: sample.trend.flatMap { SmartwatchGlucoseTrend(rawValue: $0.rawValue) },
             trendRate: sample.trendRate?.doubleValue(for: .milligramsPerDeciliterPerMinute),
             wasUserEntered: sample.wasUserEntered,
             isDisplayOnly: sample.isDisplayOnly

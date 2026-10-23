@@ -432,8 +432,6 @@ class LoopAppManager: NSObject {
             loopDataManager: loopDataManager,
             settingsManager: settingsManager,
             glucoseStore: glucoseStore,
-            glucoseAlertManager: deviceDataManager.glucoseAlertManager,
-            alertMuter: alertManager.alertMuter,
             // The same path as remote boluses: maximum bolus check, notifications, upload.
             deliverBolus: { [weak servicesManager] units in
                 guard let servicesManager else {
