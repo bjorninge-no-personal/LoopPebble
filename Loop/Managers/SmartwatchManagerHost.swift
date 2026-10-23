@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HealthKit
 import LoopAlgorithm
 import LoopKit
 
@@ -24,6 +25,7 @@ final class SmartwatchManagerHost {
     private unowned let loopDataManager: LoopDataManager
     private unowned let settingsManager: SettingsManager
     private let glucoseStore: GlucoseStore
+    private let healthStore: HKHealthStore
     private let deliverBolus: (Double) async throws -> Void
 
     private let log = DiagnosticLog(category: "SmartwatchManagerHost")
@@ -41,12 +43,14 @@ final class SmartwatchManagerHost {
         loopDataManager: LoopDataManager,
         settingsManager: SettingsManager,
         glucoseStore: GlucoseStore,
+        healthStore: HKHealthStore,
         deliverBolus: @escaping (Double) async throws -> Void
     ) {
         self.deviceManager = deviceManager
         self.loopDataManager = loopDataManager
         self.settingsManager = settingsManager
         self.glucoseStore = glucoseStore
+        self.healthStore = healthStore
         self.deliverBolus = deliverBolus
 
         notificationObservers = [
@@ -56,6 +60,9 @@ final class SmartwatchManagerHost {
                 MainActor.assumeIsolated { self?.update() }
             },
             NotificationCenter.default.addObserver(forName: .LoopDataUpdated, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.update() }
+            },
+            NotificationCenter.default.addObserver(forName: .HealthStorePreferredGlucoseUnitDidChange, object: healthStore, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.update() }
             },
             NotificationCenter.default.addObserver(forName: .LoopCycleCompleted, object: nil, queue: .main) { [weak self] _ in
@@ -101,13 +108,28 @@ final class SmartwatchManagerHost {
         }
     }
 
+    /// The glucose unit from HealthKit's stored preference, which is what Loop's own
+    /// display settles on. Loop's in-memory preference starts at mg/dL until
+    /// HealthKit's first answer arrives, so reading it at launch briefly sent mg/dL
+    /// to the watch of a mmol/L user. Falls back to it when HealthKit can't answer,
+    /// for example while protected data is unavailable.
+    private func displayUnit() async -> SmartwatchGlucoseUnit {
+        let unit: LoopUnit
+        if let hkUnit = await healthStore.cachedPreferredUnits(for: .bloodGlucose) {
+            unit = LoopUnit(from: hkUnit)
+        } else {
+            unit = deviceManager.displayGlucosePreference.unit
+        }
+        return unit == .millimolesPerLiter ? .millimolesPerLiter : .milligramsPerDeciliter
+    }
+
     private func makeSnapshot(capabilities: SmartwatchCapabilities) async throws -> SmartwatchStatusSnapshot {
         let historyStart = Date().addingTimeInterval(-SmartwatchStatusSnapshot.historyInterval)
         let samples = try await glucoseStore.getGlucoseSamples(start: historyStart)
 
         let readings = samples.map(SmartwatchGlucoseReading.init)
         var snapshot = SmartwatchStatusSnapshot(
-            displayUnit: deviceManager.displayGlucosePreference.unit == .millimolesPerLiter ? .millimolesPerLiter : .milligramsPerDeciliter,
+            displayUnit: await displayUnit(),
             glucose: readings.last,
             glucoseHistory: capabilities.contains(.history) ? readings : []
         )
