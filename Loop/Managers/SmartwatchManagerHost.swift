@@ -84,6 +84,7 @@ final class SmartwatchManagerHost {
     /// one that reconnected.
     func refresh() {
         lastSentSnapshot = nil
+        loggedUndeclaredRequest = []
         update()
     }
 
@@ -96,6 +97,7 @@ final class SmartwatchManagerHost {
         // Fill only what the watch asks for now (the user may have turned a display
         // element off), within what the plugin declares.
         let capabilities = smartwatchManager.effectiveCapabilities
+        logUndeclaredRequest(smartwatchManager)
 
         Task {
             let snapshot: SmartwatchStatusSnapshot
@@ -142,6 +144,11 @@ final class SmartwatchManagerHost {
             glucose: readings.last,
             glucoseHistory: capabilities.contains(.history) ? readings : []
         )
+        if capabilities.contains(.prediction) {
+            snapshot.predictedGlucose = loopDataManager.displayState.output?.predictedGlucose.map {
+                SmartwatchPredictedGlucose(date: $0.startDate, milligramsPerDeciliter: $0.quantity.doubleValue(for: .milligramsPerDeciliter))
+            }
+        }
         if capabilities.contains(.loopStatus) {
             snapshot.insulinOnBoard = loopDataManager.activeInsulin?.value
             snapshot.carbsOnBoard = loopDataManager.activeCarbs?.quantity.doubleValue(for: .gram)
@@ -158,7 +165,8 @@ final class SmartwatchManagerHost {
     }
 
     /// What the algorithm is working with now, in mg/dL, with any active preset
-    /// applied.
+    /// applied. Loop has no sensitivity ratio (an oref/autosens value), so that
+    /// stays nil.
     private func currentTherapyContext(now: Date = Date()) -> SmartwatchTherapyContext {
         let presets = loopDataManager.temporaryPresetsManager
         var tempBasalRate: Double?
@@ -268,6 +276,19 @@ final class SmartwatchManagerHost {
         return units
     }
 
+    /// The undeclared capabilities a plugin last requested, so each set is logged once.
+    private var loggedUndeclaredRequest: SmartwatchCapabilities = []
+
+    /// A plugin can't obtain a capability it doesn't declare: hosts act only on
+    /// `effectiveCapabilities`. Log when it asks for more, once per distinct set.
+    private func logUndeclaredRequest(_ manager: SmartwatchManager) {
+        let undeclared = manager.undeclaredRequestedCapabilities
+        guard undeclared != loggedUndeclaredRequest else { return }
+        loggedUndeclaredRequest = undeclared
+        guard !undeclared.isEmpty else { return }
+        deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .error, message: "The watch plugin requested capabilities it doesn't declare (\(undeclared)); they are ignored", completion: nil)
+    }
+
     /// Which glucose alert this is, so plugins needn't know Loop's alert identifiers.
     static func glucoseAlertType(of identifier: Alert.Identifier) -> SmartwatchGlucoseAlertType? {
         guard identifier.managerIdentifier == GlucoseAlertManager.managerIdentifier else { return nil }
@@ -280,9 +301,13 @@ final class SmartwatchManagerHost {
         }
     }
 
-    /// Writes an alert note to the device log.
-    private func logAlert(_ manager: SmartwatchManager, _ message: String) {
+    /// Writes an alert note to the device log and, unless `showInPluginLog` is
+    /// false, hands it to the plugin so its own log shows it next to the watch traffic.
+    private func logAlert(_ manager: SmartwatchManager, _ message: String, showInPluginLog: Bool = true) {
         deviceManager.deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .delegate, message: message, completion: nil)
+        if showInPluginLog {
+            manager.watchHostDidLog(message)
+        }
     }
 
     /// Mutes Loop's alerts for a request from the watch, like Mute All Alerts in
@@ -378,7 +403,9 @@ extension SmartwatchManagerHost: AlertForwarder {
         // a pod reminder is acknowledged but never retracted, so it would otherwise
         // linger in the plugin's active set forever.
         guard alert.identifier.managerIdentifier == GlucoseAlertManager.managerIdentifier else {
-            logAlert(smartwatchManager, "\(content.title) not sent to the watch: only glucose alerts are forwarded")
+            // Device log only: override reminders, pod alerts and the like never
+            // reach the watch, so they would only clutter the watch's own log.
+            logAlert(smartwatchManager, "\(content.title) not sent to the watch: only glucose alerts are forwarded", showInPluginLog: false)
             return
         }
         guard case .immediate = alert.trigger else {
@@ -399,6 +426,69 @@ extension SmartwatchManagerHost: AlertForwarder {
                 glucoseAlertType: Self.glucoseAlertType(of: alert.identifier)
             )
         )
+        // Queued after the plugin's own "issued" line, which also hops to the main
+        // actor. Uses the same unit as the watch snapshots (HealthKit's stored one).
+        let firedAt = Date()
+        Task { @MainActor in
+            let unit = await self.preferredGlucoseUnit()
+            if let note = self.nextAlertNote(for: alert, unit: unit, now: firedAt) {
+                self.logAlert(smartwatchManager, note)
+            }
+        }
+    }
+
+    /// When Loop will alert again for a glucose alert it just fired, and what
+    /// clears it, so the device log explains the next phone alert and watch buzz.
+    /// Reads GlucoseAlertManager's active settings; the alert fired just now, so a
+    /// repeat is due one repeat interval from now, on the first reading from then.
+    private func nextAlertNote(for alert: Alert, unit: LoopUnit, now: Date) -> String? {
+        let config = deviceManager.glucoseAlertManager.activeConfiguration(at: now)
+        let title = (alert.foregroundContent ?? alert.backgroundContent).title
+        let rule: (above: Bool, threshold: Double, repeatInterval: TimeInterval?)
+        switch alert.identifier.alertIdentifier {
+        case GlucoseAlertManager.highAlertIdentifier:
+            rule = (true, config.highThresholdMgDL, config.highSnoozeEnabled ? config.highRepeatInterval : nil)
+        case GlucoseAlertManager.lowAlertIdentifier:
+            rule = (false, config.lowThresholdMgDL, config.lowSnoozeEnabled ? config.lowRepeatInterval : nil)
+        case GlucoseAlertManager.urgentLowAlertIdentifier:
+            rule = (false, config.urgentLowThresholdMgDL, config.urgentLowRepeatInterval)
+        case GlucoseAlertManager.predictedLowAlertIdentifier:
+            return "Next alert: \(title) doesn't repeat; it fires once per predicted low."
+        default:
+            return nil
+        }
+        let margin = config.recoveryMarginMgDL
+        let level = glucoseText(rule.threshold, unit: unit)
+        let clearLevel = glucoseText(rule.above ? rule.threshold - margin : rule.threshold + margin, unit: unit)
+        let side = rule.above ? "above" : "below"
+        let recovers = rule.above ? "falls below" : "rises above"
+        guard let repeatInterval = rule.repeatInterval else {
+            return "Next alert: \(title) doesn't repeat (repeat is off). It fires again only after glucose \(recovers) \(clearLevel) and then goes \(side) \(level) again."
+        }
+        let next = now.addingTimeInterval(repeatInterval)
+        return "Next alert: if glucose is still \(side) \(level), Loop repeats \(title) and forwards it to the watch at the first reading from \(timeText(next)) (every \(intervalText(repeatInterval))). It clears once glucose \(recovers) \(clearLevel)."
+    }
+
+    private func glucoseText(_ milligramsPerDeciliter: Double, unit: LoopUnit) -> String {
+        let quantity = LoopQuantity(unit: .milligramsPerDeciliter, doubleValue: milligramsPerDeciliter)
+        return QuantityFormatter(for: unit).string(from: quantity) ?? "\(Int(milligramsPerDeciliter)) mg/dL"
+    }
+
+    private func timeText(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
+        }
+        if calendar.isDateInTomorrow(date) {
+            return DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short) + " tomorrow"
+        }
+        return DateFormatter.localizedString(from: date, dateStyle: .short, timeStyle: .short)
+    }
+
+    private func intervalText(_ interval: TimeInterval) -> String {
+        let minutes = Int((interval / 60).rounded())
+        guard minutes >= 60 else { return "\(minutes) min" }
+        return minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes / 60) h \(minutes % 60) min"
     }
 
     /// Retractions go to every plugin that declares `.alerts`, even one that has
