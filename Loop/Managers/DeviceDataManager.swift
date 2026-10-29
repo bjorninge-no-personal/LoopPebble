@@ -1151,11 +1151,11 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     }
 
     nonisolated
-    func smartwatchManager(_ manager: SmartwatchManager, requestCarbEntry grams: Double) async throws -> Double {
+    func smartwatchManager(_ manager: SmartwatchManager, requestCarbEntry request: SmartwatchCarbEntryRequest) async throws -> Double {
         guard let host = await smartwatchManagerHost else {
             throw SmartwatchCarbEntryError.notAllowed
         }
-        return try await host.handleCarbEntryRequest(grams, from: manager)
+        return try await host.handleCarbEntryRequest(request, from: manager)
     }
 }
 
