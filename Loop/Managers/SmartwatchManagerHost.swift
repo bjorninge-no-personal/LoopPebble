@@ -29,6 +29,8 @@ final class SmartwatchManagerHost {
     private let deliverBolus: (Double) async throws -> Void
     private let alertMuter: AlertMuter
     private let deliverCarbs: (Double) async throws -> Void
+    private let startOverride: (String) async throws -> Void
+    private let cancelOverride: () async throws -> Void
 
     private let log = DiagnosticLog(category: "SmartwatchManagerHost")
 
@@ -48,7 +50,9 @@ final class SmartwatchManagerHost {
         healthStore: HKHealthStore,
         alertMuter: AlertMuter,
         deliverBolus: @escaping (Double) async throws -> Void,
-        deliverCarbs: @escaping (Double) async throws -> Void
+        deliverCarbs: @escaping (Double) async throws -> Void,
+        startOverride: @escaping (String) async throws -> Void,
+        cancelOverride: @escaping () async throws -> Void
     ) {
         self.deviceManager = deviceManager
         self.loopDataManager = loopDataManager
@@ -58,6 +62,8 @@ final class SmartwatchManagerHost {
         self.deliverBolus = deliverBolus
         self.alertMuter = alertMuter
         self.deliverCarbs = deliverCarbs
+        self.startOverride = startOverride
+        self.cancelOverride = cancelOverride
 
         notificationObservers = [
             // Posted as soon as new samples are saved, before LoopDataManager
@@ -161,6 +167,9 @@ final class SmartwatchManagerHost {
         if capabilities.contains(.remoteBolus) {
             snapshot.bolusContext = await currentBolusContext(latestGlucoseDate: samples.last?.startDate)
         }
+        if capabilities.contains(.remoteOverride) {
+            snapshot.overridePresets = currentOverridePresets()
+        }
         return snapshot
     }
 
@@ -191,6 +200,70 @@ final class SmartwatchManagerHost {
             activePresetName: presetName,
             activePresetEnd: override?.scheduledEndDate
         )
+    }
+
+    /// Loop's presets, with the running one marked.
+    private func currentOverridePresets(now: Date = Date()) -> [SmartwatchPreset] {
+        let running = loopDataManager.temporaryPresetsManager.scheduleOverride.flatMap { $0.isActive(at: now) ? $0 : nil }
+        let runningID: String? = if case .preset(let preset) = running?.context { preset.id } else { nil }
+        return settingsManager.settings.overridePresets.map { preset in
+            let duration: TimeInterval? = if case .finite(let interval) = preset.duration { interval } else { nil }
+            return SmartwatchPreset(id: preset.id, name: preset.name, isActive: preset.id == runningID, duration: duration)
+        }
+    }
+
+    /// Starts or ends a preset for a request from the watch, through the same path
+    /// as remote overrides. Only while Allow Presets from Watch is on, and for
+    /// requests confirmed in the last 30 seconds.
+    func handleOverrideRequest(_ request: SmartwatchOverrideRequest, from manager: SmartwatchManager) async throws {
+        let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
+        let preset: TemporaryPreset?
+        switch request.action {
+        case .activate(let presetID):
+            preset = settingsManager.settings.overridePresets.first { $0.id == presetID }
+            logWatchRequest(manager, type: .receive, "Preset request: start \(preset.map { "\"\($0.name)\"" } ?? presetID), confirmed at \(request.requestedAt)")
+        case .cancel:
+            preset = nil
+            logWatchRequest(manager, type: .receive, "Preset request: end the running preset, confirmed at \(request.requestedAt)")
+        }
+        let refusal: String? = if !isCurrentWatch {
+            "the request isn't from the current watch"
+        } else if !manager.effectiveCapabilities.contains(.remoteOverride) {
+            "this watch can't start presets (remoteOverride not declared or not requested)"
+        } else if !UserDefaults.standard.allowWatchOverrides {
+            "Allow Presets from Watch is off"
+        } else {
+            nil
+        }
+        if let refusal {
+            logWatchRequest(manager, type: .error, "Preset request rejected: notAllowed (\(refusal))")
+            throw SmartwatchPresetError.notAllowed
+        }
+        let age = Date().timeIntervalSince(request.requestedAt)
+        guard age <= SmartwatchBolusPolicy.maximumRequestAge, age >= -SmartwatchBolusPolicy.maximumClockSkew else {
+            logWatchRequest(manager, type: .error, String(format: "Preset request rejected: expiredRequest (confirmed %.0f s ago)", age))
+            throw SmartwatchPresetError.expiredRequest
+        }
+        do {
+            switch request.action {
+            case .activate:
+                guard let preset else {
+                    logWatchRequest(manager, type: .error, "Preset request rejected: unknownPreset")
+                    throw SmartwatchPresetError.unknownPreset
+                }
+                try await startOverride(preset.name)
+                logWatchRequest(manager, type: .delegateResponse, "Preset \"\(preset.name)\" started from the watch")
+            case .cancel:
+                try await cancelOverride()
+                logWatchRequest(manager, type: .delegateResponse, "Preset ended from the watch")
+            }
+        } catch let error as SmartwatchPresetError {
+            throw error
+        } catch {
+            logWatchRequest(manager, type: .error, "Preset request from the watch failed: \(error)")
+            throw SmartwatchPresetError.failed(String(describing: error))
+        }
+        refresh()
     }
 
     // MARK: - Watch bolus

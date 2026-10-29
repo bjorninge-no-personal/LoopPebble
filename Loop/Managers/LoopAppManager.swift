@@ -447,6 +447,19 @@ class LoopAppManager: NSObject {
                     throw SmartwatchCarbEntryError.notAllowed
                 }
                 try await servicesManager.deliverRemoteCarbs(amountInGrams: grams, absorptionTime: nil, foodType: nil, startDate: nil)
+            },
+            // The same path as remote overrides: the preset's own duration, upload.
+            startOverride: { [weak servicesManager] name in
+                guard let servicesManager else {
+                    throw SmartwatchPresetError.notAllowed
+                }
+                try await servicesManager.enactRemoteOverride(name: name, durationTime: nil, remoteAddress: "Watch")
+            },
+            cancelOverride: { [weak servicesManager] in
+                guard let servicesManager else {
+                    throw SmartwatchPresetError.notAllowed
+                }
+                try await servicesManager.cancelRemoteOverride()
             }
         )
         deviceDataManager.smartwatchManagerHost = smartwatchManagerHost
