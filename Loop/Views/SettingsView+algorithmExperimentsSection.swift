@@ -41,6 +41,7 @@ public struct ExperimentRow: View {
 public struct ExperimentsSettingsView: View {
     @AppStorage(UserDefaults.Key.GlucoseBasedApplicationFactorEnabled.rawValue) private var isGlucoseBasedApplicationFactorEnabled = false
     @AppStorage(UserDefaults.Key.IntegralRetrospectiveCorrectionEnabled.rawValue) private var isIntegralRetrospectiveCorrectionEnabled = false
+    @AppStorage(UserDefaults.Key.NegativeInsulinDamperEnabled.rawValue) private var isNegativeInsulinDamperEnabled = false
     @AppStorage(UserDefaults.Key.GuardAndRunwayEnabled.rawValue) private var isGuardAndRunwayEnabled = false
     var automaticDosingStrategy: AutomaticDosingStrategy
 
@@ -76,6 +77,11 @@ public struct ExperimentsSettingsView: View {
                         name: NSLocalizedString("Integral Retrospective Correction", comment: "Title of integral retrospective correction experiment"),
                         enabled: isIntegralRetrospectiveCorrectionEnabled)
                 }
+                NavigationLink(destination: NegativeInsulinDamperSelectionView(isNegativeInsulinDamperEnabled: $isNegativeInsulinDamperEnabled)) {
+                    ExperimentRow(
+                        name: NSLocalizedString("Negative Insulin Damper", comment: "Title of negative insulin damper experiment"),
+                        enabled: isNegativeInsulinDamperEnabled)
+                }
                 Text(NSLocalizedString("About 2 weeks with the same setup is a good amount of time to see a change in outcomes such as time in range and lows. Over just a few days, ordinary day-to-day variation can hide or exaggerate the effect.", comment: "Suggested length of time to try an algorithm experiment setup."))
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -93,6 +99,7 @@ extension UserDefaults {
     fileprivate enum Key: String {
         case GlucoseBasedApplicationFactorEnabled = "com.loopkit.algorithmExperiments.glucoseBasedApplicationFactorEnabled"
         case IntegralRetrospectiveCorrectionEnabled = "com.loopkit.algorithmExperiments.integralRetrospectiveCorrectionEnabled"
+        case NegativeInsulinDamperEnabled = "com.loopkit.algorithmExperiments.negativeInsulinDamperEnabled"
         case GuardAndRunwayEnabled = "com.loopkit.algorithmExperiments.guardAndRunwayEnabled"
     }
 
@@ -120,6 +127,15 @@ extension UserDefaults {
         }
         set {
             set(newValue, forKey: Key.GuardAndRunwayEnabled.rawValue)
+        }
+    }
+
+    var negativeInsulinDamperEnabled: Bool {
+        get {
+            bool(forKey: Key.NegativeInsulinDamperEnabled.rawValue) as Bool
+        }
+        set {
+            set(newValue, forKey: Key.NegativeInsulinDamperEnabled.rawValue)
         }
     }
 

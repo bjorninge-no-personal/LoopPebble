@@ -928,7 +928,7 @@ final class GlucoseAlertManager: ObservableObject {
                 return
             }
             let alert = decideAndUpdate(
-                state: &lowState, identifier: Self.lowAlertIdentifier, interruptionLevel: .timeSensitive,
+                state: &lowState, identifier: Self.lowAlertIdentifier, interruptionLevel: .critical,
                 title: NSLocalizedString("Low Glucose", comment: "Title of the low glucose alert"),
                 body: String(
                     format: NSLocalizedString("Glucose is below %1$@ (current: %2$@)",
@@ -974,7 +974,7 @@ final class GlucoseAlertManager: ObservableObject {
         let threshold = config.highThresholdMgDL
         if mgdl > threshold {
             let alert = decideAndUpdate(
-                state: &highState, identifier: Self.highAlertIdentifier, interruptionLevel: .timeSensitive,
+                state: &highState, identifier: Self.highAlertIdentifier, interruptionLevel: .critical,
                 title: NSLocalizedString("High Glucose", comment: "Title of the high glucose alert"),
                 body: String(
                     format: NSLocalizedString("Glucose is above %1$@ (current: %2$@)",
@@ -1053,7 +1053,7 @@ final class GlucoseAlertManager: ObservableObject {
             identifier: Alert.Identifier(managerIdentifier: Self.managerIdentifier, alertIdentifier: Self.predictedLowAlertIdentifier),
             foregroundContent: content,
             backgroundContent: content,
-            trigger: .immediate, interruptionLevel: .timeSensitive,
+            trigger: .immediate, interruptionLevel: .critical,
             sound: .sound(name: configuredSoundName(for: Self.predictedLowAlertIdentifier))
         )
         await alertIssuer.issueAlert(alert)

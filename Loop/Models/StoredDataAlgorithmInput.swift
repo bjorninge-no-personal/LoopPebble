@@ -60,4 +60,6 @@ struct StoredDataAlgorithmInput: AlgorithmInput {
     var experiments: Set<ExperimentOption> = []
 
     var volatilityBaseline: Double? = nil
+
+    var negativeInsulinDamper: Double? = nil
 }
