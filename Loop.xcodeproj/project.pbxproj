@@ -196,6 +196,8 @@
 		439A7944211FE22F0041B75F /* NSUserActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439A7943211FE22F0041B75F /* NSUserActivity.swift */; };
 		439A7945211FE23A0041B75F /* NSUserActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439A7943211FE22F0041B75F /* NSUserActivity.swift */; };
 		439BED2A1E76093C00B0AED5 /* CGMManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439BED291E76093C00B0AED5 /* CGMManager.swift */; };
+		0AB9F65B073904D4F9E5FCB9 /* SmartwatchManagerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */; };
+		D23CD09C2E6905F436987257 /* SmartwatchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3621E1DB280412962D20BE6C /* SmartwatchManager.swift */; };
 		43A51E1F1EB6D62A000736CC /* CarbAbsorptionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A51E1E1EB6D62A000736CC /* CarbAbsorptionViewController.swift */; };
 		43A51E211EB6DBDD000736CC /* LoopChartsTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A51E201EB6DBDD000736CC /* LoopChartsTableViewController.swift */; };
 		43A567691C94880B00334FAC /* LoopDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A567681C94880B00334FAC /* LoopDataManager.swift */; };
@@ -994,6 +996,8 @@
 		439A7941211F631C0041B75F /* RootNavigationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootNavigationController.swift; sourceTree = "<group>"; };
 		439A7943211FE22F0041B75F /* NSUserActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSUserActivity.swift; sourceTree = "<group>"; };
 		439BED291E76093C00B0AED5 /* CGMManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CGMManager.swift; sourceTree = "<group>"; };
+		A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost.swift; sourceTree = "<group>"; };
+		3621E1DB280412962D20BE6C /* SmartwatchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManager.swift; sourceTree = "<group>"; };
 		43A51E1E1EB6D62A000736CC /* CarbAbsorptionViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CarbAbsorptionViewController.swift; sourceTree = "<group>"; };
 		43A51E201EB6DBDD000736CC /* LoopChartsTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoopChartsTableViewController.swift; sourceTree = "<group>"; };
 		43A567681C94880B00334FAC /* LoopDataManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; lineEnding = 0; path = LoopDataManager.swift; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
@@ -2208,6 +2212,8 @@
 				C1F2075B26D6F9B0007AB7EB /* AppExpirationAlerter.swift */,
 				B4F3D25024AF890C0095CE44 /* BluetoothStateManager.swift */,
 				439BED291E76093C00B0AED5 /* CGMManager.swift */,
+				A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */,
+				3621E1DB280412962D20BE6C /* SmartwatchManager.swift */,
 				C16575702538A36B004AE16E /* CGMStalenessMonitor.swift */,
 				A977A2F324ACFECF0059C207 /* CriticalEventLogExportManager.swift */,
 				C148CEE624FD91BD00711B3B /* DeliveryUncertaintyAlertManager.swift */,
@@ -3727,6 +3733,8 @@
 				434FF1EE1CF27EEF000DB779 /* UITableViewCell.swift in Sources */,
 				84DF48C32F6A0AF600BEDB40 /* Image+Crop.swift in Sources */,
 				439BED2A1E76093C00B0AED5 /* CGMManager.swift in Sources */,
+				0AB9F65B073904D4F9E5FCB9 /* SmartwatchManagerHost.swift in Sources */,
+				D23CD09C2E6905F436987257 /* SmartwatchManager.swift in Sources */,
 				C16B983E26B4893300256B05 /* DoseEnactor.swift in Sources */,
 				3ED319962EB65A5C00820BCF /* LiveActivityManagementViewModel.swift in Sources */,
 				E98A55EF24EDD6E60008715D /* DosingDecisionStoreProtocol.swift in Sources */,
