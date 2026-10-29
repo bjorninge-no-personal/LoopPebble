@@ -170,6 +170,10 @@ final class DeviceDataManager {
 
     var smartwatchManager: SmartwatchManagerUI? {
         didSet {
+            // Restoring at launch starts from nil, so this only fires on removal or replacement.
+            if let oldValue, smartwatchManager.map({ ($0 as AnyObject) !== (oldValue as AnyObject) }) ?? true {
+                UserDefaults.standard.resetWatchPermissions()
+            }
             setupWatch()
             NotificationCenter.default.post(name: .SmartwatchManagerChanged, object: self, userInfo: nil)
             rawSmartwatchManager = smartwatchManager?.rawValue
@@ -1108,6 +1112,8 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     nonisolated
     func smartwatchManagerRequestsRefresh(_ manager: SmartwatchManager) {
         Task { @MainActor in
+            // Requested capabilities may have changed, which shows or hides Watch Permissions.
+            NotificationCenter.default.post(name: .SmartwatchManagerCapabilitiesChanged, object: self, userInfo: nil)
             smartwatchManagerHost?.refresh()
         }
     }
@@ -1126,6 +1132,30 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
         Task { @MainActor in
             deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: event.deviceIdentifier, type: type, message: event.message, completion: nil)
         }
+    }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, requestBolus request: SmartwatchBolusRequest) async throws -> Double {
+        guard let host = await smartwatchManagerHost else {
+            throw SmartwatchBolusError.notAllowed
+        }
+        return try await host.handleBolusRequest(request, from: manager)
+    }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, requestAlertMute duration: TimeInterval) async throws -> Date {
+        guard let host = await smartwatchManagerHost else {
+            throw SmartwatchAlertMuteError.notAllowed
+        }
+        return try await host.handleAlertMuteRequest(duration, from: manager)
+    }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, requestCarbEntry grams: Double) async throws -> Double {
+        guard let host = await smartwatchManagerHost else {
+            throw SmartwatchCarbEntryError.notAllowed
+        }
+        return try await host.handleCarbEntryRequest(grams, from: manager)
     }
 }
 
@@ -1472,6 +1502,7 @@ extension Notification.Name {
     static let PumpManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.PumpManagerChanged")
     static let CGMManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.CGMManagerChanged")
     static let SmartwatchManagerChanged = Notification.Name(rawValue:  "com.loopKit.notification.SmartwatchManagerChanged")
+    static let SmartwatchManagerCapabilitiesChanged = Notification.Name(rawValue:  "com.loopKit.notification.SmartwatchManagerCapabilitiesChanged")
     static let PumpEventsAdded = Notification.Name(rawValue:  "com.loopKit.notification.PumpEventsAdded")
 }
 
