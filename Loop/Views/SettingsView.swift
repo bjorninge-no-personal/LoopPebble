@@ -512,14 +512,14 @@ extension SettingsView {
     }
     
     /// Watch Permissions appear only when the watch plugin offers a remote action
-    /// (`.remoteMute`, `.remoteBolus`, `.remoteCarbs`). No plugin does yet, so the
+    /// (`.remoteMute`, `.remoteBolus`, `.remoteCarbs`, `.remoteOverride`). No plugin does yet, so the
     /// screen stays hidden; it is kept compiled for when one does.
     private var offersWatchPermissions: Bool {
         let _ = viewModel.smartwatchManagerRevision
         guard let manager = viewModel.deviceManager?.smartwatchManager else {
             return false
         }
-        return !manager.effectiveCapabilities.isDisjoint(with: [.remoteMute, .remoteBolus, .remoteCarbs])
+        return !manager.effectiveCapabilities.isDisjoint(with: [.remoteMute, .remoteBolus, .remoteCarbs, .remoteOverride])
     }
 
     /// Opens what the watch may ask Loop to do.
@@ -997,11 +997,16 @@ private struct WatchPermissionsView: View {
     @AppStorage(UserDefaults.allowWatchMuteKey) private var allowWatchMute = false
     @AppStorage(UserDefaults.allowWatchCarbsKey) private var allowWatchCarbs = false
     @AppStorage(UserDefaults.allowWatchBolusKey) private var allowWatchBolus = false
+    @AppStorage(UserDefaults.allowWatchOverridesKey) private var allowWatchOverrides = false
 
     var body: some View {
         List {
             Section(footer: Text(String(format: NSLocalizedString("Mutes all %1$@ sounds for as long as the watch asks, rounded up to one of the app's mute durations, the same as Mute All App Sounds, including critical alerts.", comment: "Footer for Allow Mute from Watch (1: app name)"), appName))) {
                 Toggle(NSLocalizedString("Allow Mute from Watch", comment: "Toggle allowing a watch to mute the app's alerts"), isOn: $allowWatchMute)
+            }
+
+            Section(footer: Text(String(format: NSLocalizedString("%1$@ starts the preset picked on the watch, for the preset's own duration, or ends the running one, like a remote override.", comment: "Footer for Allow Presets from Watch (1: app name)"), appName))) {
+                Toggle(NSLocalizedString("Allow Presets from Watch", comment: "Toggle allowing a watch to start and end override presets"), isOn: $allowWatchOverrides)
             }
 
             Section(footer: Text(String(format: NSLocalizedString("%1$@ adds the watch's carb entry like a remote carb entry, at most one every 15 minutes. In closed loop, %1$@ may dose for it.", comment: "Footer for Allow Carbs from Watch (1: app name)"), appName))) {
