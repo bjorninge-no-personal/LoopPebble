@@ -125,6 +125,14 @@ extension UserDefaults {
         set { set(newValue, forKey: Self.allowWatchMuteKey) }
     }
 
+    /// Whether a watch plugin with `.remoteOverride` may start and end override presets. Off by default.
+    static let allowWatchOverridesKey = "com.loopkit.Loop.allowWatchOverrides"
+
+    var allowWatchOverrides: Bool {
+        get { bool(forKey: Self.allowWatchOverridesKey) }
+        set { set(newValue, forKey: Self.allowWatchOverridesKey) }
+    }
+
     /// Turns off every Watch Permissions toggle. Called when the watch plugin is
     /// removed or replaced, so a new plugin never inherits what the user granted
     /// another one. The rate-limit history is kept.
@@ -132,6 +140,7 @@ extension UserDefaults {
         allowWatchBolus = false
         allowWatchCarbs = false
         allowWatchMute = false
+        allowWatchOverrides = false
     }
 
     /// Watch boluses delivered in the last 24 hours, kept across launches for the rate limits.

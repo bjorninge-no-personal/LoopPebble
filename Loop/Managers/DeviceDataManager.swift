@@ -1157,6 +1157,14 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
         }
         return try await host.handleCarbEntryRequest(request, from: manager)
     }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, requestOverride request: SmartwatchOverrideRequest) async throws {
+        guard let host = await smartwatchManagerHost else {
+            throw SmartwatchPresetError.notAllowed
+        }
+        try await host.handleOverrideRequest(request, from: manager)
+    }
 }
 
 // MARK: - SmartwatchManagerOnboardingDelegate
