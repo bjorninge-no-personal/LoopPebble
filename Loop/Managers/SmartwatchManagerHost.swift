@@ -231,6 +231,12 @@ final class SmartwatchManagerHost {
     func handleBolusRequest(_ request: SmartwatchBolusRequest, from manager: SmartwatchManager) async throws -> Double {
         let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
         logWatchRequest(manager, type: .receive, String(format: "%@ request: %.3f U, confirmed at %@, context %@", request.isForced ? "Forced bolus (recommendation not checked)" : "Bolus", request.units, String(describing: request.requestedAt), request.contextToken.uuidString))
+        // A resend of the bolus being delivered: its result follows. Answering with
+        // a failure could lead the user to bolus again.
+        if request.contextToken == deliveringBolusToken {
+            logWatchRequest(manager, type: .error, "Bolus request answered with inProgress: the same bolus is still being delivered")
+            throw SmartwatchBolusError.inProgress
+        }
 
         let policy = SmartwatchBolusPolicy(
             isAllowed: UserDefaults.standard.allowWatchBolus && isCurrentWatch && manager.effectiveCapabilities.contains(.remoteBolus),
@@ -262,6 +268,8 @@ final class SmartwatchManagerHost {
         // Spend the context so the same request cannot deliver twice.
         bolusContext = nil
         bolusContextBasis = nil
+        deliveringBolusToken = request.contextToken
+        defer { deliveringBolusToken = nil }
         logWatchRequest(manager, type: .delegate, String(format: "Delivering watch bolus of %.3f U", units))
         do {
             try await deliverBolus(units)
@@ -332,15 +340,19 @@ final class SmartwatchManagerHost {
         return end
     }
 
+    /// The context token of the watch bolus being delivered.
+    private var deliveringBolusToken: UUID?
+
     /// Minimum time between carb entries from the watch.
     static let minimumWatchCarbInterval: TimeInterval = 15 * 60
 
     /// Adds a carb entry the watch asked for, through the same path as remote
-    /// carbs (notification, upload). Only while Allow Carbs from Watch is on, and
-    /// at most one every 15 minutes.
-    func handleCarbEntryRequest(_ grams: Double, from manager: SmartwatchManager) async throws -> Double {
+    /// carbs (notification, upload). Only while Allow Carbs from Watch is on, for
+    /// requests confirmed in the last 30 seconds, and at most one every 15 minutes.
+    func handleCarbEntryRequest(_ request: SmartwatchCarbEntryRequest, from manager: SmartwatchManager) async throws -> Double {
+        let grams = request.grams
         let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
-        logWatchRequest(manager, type: .receive, String(format: "Carb entry request: %.0f g", grams))
+        logWatchRequest(manager, type: .receive, String(format: "Carb entry request: %.0f g, confirmed at %@", grams, String(describing: request.requestedAt)))
         let refusal: String? = if !isCurrentWatch {
             "the request isn't from the current watch"
         } else if !manager.effectiveCapabilities.contains(.remoteCarbs) {
@@ -354,7 +366,13 @@ final class SmartwatchManagerHost {
             logWatchRequest(manager, type: .error, "Carb entry request rejected: notAllowed (\(refusal))")
             throw SmartwatchCarbEntryError.notAllowed
         }
-        if let last = UserDefaults.standard.lastWatchCarbEntry, Date().timeIntervalSince(last) < Self.minimumWatchCarbInterval {
+        let age = Date().timeIntervalSince(request.requestedAt)
+        guard age <= SmartwatchBolusPolicy.maximumRequestAge, age >= -SmartwatchBolusPolicy.maximumClockSkew else {
+            logWatchRequest(manager, type: .error, String(format: "Carb entry request rejected: expiredRequest (confirmed %.0f s ago)", age))
+            throw SmartwatchCarbEntryError.expiredRequest
+        }
+        let previousEntry = UserDefaults.standard.lastWatchCarbEntry
+        if let last = previousEntry, Date().timeIntervalSince(last) < Self.minimumWatchCarbInterval {
             logWatchRequest(manager, type: .error, String(format: "Carb entry request rejected: rateLimited (last one %.0f min ago, minimum %.0f min)", Date().timeIntervalSince(last) / 60, Self.minimumWatchCarbInterval / 60))
             throw SmartwatchCarbEntryError.rateLimited
         }
@@ -362,13 +380,16 @@ final class SmartwatchManagerHost {
             logWatchRequest(manager, type: .error, "Carb entry request rejected: invalid amount")
             throw SmartwatchCarbEntryError.failed("invalid amount")
         }
+        // Take the slot before storing, so a resend that arrives meanwhile is
+        // rate limited instead of adding the carbs a second time.
+        UserDefaults.standard.lastWatchCarbEntry = Date()
         do {
             try await deliverCarbs(grams)
         } catch {
+            UserDefaults.standard.lastWatchCarbEntry = previousEntry
             logWatchRequest(manager, type: .error, "Watch carb entry failed: \(error)")
             throw SmartwatchCarbEntryError.failed(String(describing: error))
         }
-        UserDefaults.standard.lastWatchCarbEntry = Date()
         logWatchRequest(manager, type: .delegateResponse, String(format: "Watch carb entry of %.0f g added", grams))
         refresh()
         return grams
