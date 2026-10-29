@@ -1604,6 +1604,8 @@ extension DeviceDataManager: DeviceSupportDelegate {
             "",
             self.pumpManager != nil ? String(reflecting: self.pumpManager!) : "pumpManager: nil",
             "",
+            self.smartwatchManager != nil ? String(reflecting: self.smartwatchManager!) : "smartwatchManager: nil",
+            "",
             await deviceLog.generateDiagnosticReport()
             ]
         return report.joined(separator: "\n")
