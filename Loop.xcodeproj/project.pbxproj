@@ -1001,8 +1001,8 @@
 		439A7943211FE22F0041B75F /* NSUserActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSUserActivity.swift; sourceTree = "<group>"; };
 		439BED291E76093C00B0AED5 /* CGMManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CGMManager.swift; sourceTree = "<group>"; };
 		A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost.swift; sourceTree = "<group>"; };
-		8772495BA2855FC99DDC3EB0 /* SmartwatchManagerHost+AlertForwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost+AlertForwarder.swift; sourceTree = "<group>"; };
-		3EE5E1D046A80EAC16C5514F /* SmartwatchManagerHost+RemoteActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost+RemoteActions.swift; sourceTree = "<group>"; };
+		8772495BA2855FC99DDC3EB0 /* SmartwatchManagerHost+AlertForwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SmartwatchManagerHost+AlertForwarder.swift"; sourceTree = "<group>"; };
+		3EE5E1D046A80EAC16C5514F /* SmartwatchManagerHost+RemoteActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SmartwatchManagerHost+RemoteActions.swift"; sourceTree = "<group>"; };
 		D3FF5A18F9D81237E2855A7D /* SmartwatchPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchPermissions.swift; sourceTree = "<group>"; };
 		3621E1DB280412962D20BE6C /* SmartwatchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManager.swift; sourceTree = "<group>"; };
 		43A51E1E1EB6D62A000736CC /* CarbAbsorptionViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CarbAbsorptionViewController.swift; sourceTree = "<group>"; };
