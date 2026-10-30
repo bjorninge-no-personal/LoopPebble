@@ -24,7 +24,7 @@ final class SmartwatchManagerHost {
     unowned let deviceManager: DeviceDataManager
     unowned let loopDataManager: LoopDataManager
     unowned let settingsManager: SettingsManager
-    private let glucoseStore: GlucoseStore
+    let glucoseStore: GlucoseStore
     private let healthStore: HKHealthStore
     let deliverBolus: (Double) async throws -> Void
     let alertMuter: AlertMuter
