@@ -94,6 +94,7 @@ extension SmartwatchManagerHost {
             limits: .init(requestWindow: requestWindow),
             isAllowed: UserDefaults.standard.allowWatchBolus && isCurrentWatch && manager.effectiveCapabilities.contains(.remoteBolus),
             currentContext: bolusContextIssuer.current,
+            latestGlucoseDate: glucoseStore.latestGlucose?.startDate,
             recentDeliveries: UserDefaults.standard.watchBolusDeliveries,
             roundToSupportedVolume: { [deviceManager] units in
                 deviceManager.pumpManager?.roundToSupportedBolusVolume(units: units) ?? units
@@ -112,7 +113,8 @@ extension SmartwatchManagerHost {
             } else {
                 ""
             }
-            logWatchRequest(manager, type: .error, "Bolus request rejected: \(error) (\(error == .notAllowed ? notAllowedReason : "")requested \(units(request.units)), Loop recommends \(units(bolusContextIssuer.current?.recommendedBolus ?? 0)), maximum bolus \(units(bolusContextIssuer.current?.maximumBolus)))")
+            let glucoseAge = glucoseStore.latestGlucose.map { String(format: "newest glucose %.0f min ago; ", Date().timeIntervalSince($0.startDate) / 60) } ?? "no glucose; "
+            logWatchRequest(manager, type: .error, "Bolus request rejected: \(error) (\(error == .notAllowed ? notAllowedReason : "")\(error == .noRecentGlucose ? glucoseAge : "")requested \(units(request.units)), Loop recommends \(units(bolusContextIssuer.current?.recommendedBolus ?? 0)), maximum bolus \(units(bolusContextIssuer.current?.maximumBolus)))")
             throw error
         case .success(let allowed):
             units = allowed
