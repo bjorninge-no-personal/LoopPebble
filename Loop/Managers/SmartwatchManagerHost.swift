@@ -37,6 +37,8 @@ final class SmartwatchManagerHost {
     private var lastSentSnapshot: SmartwatchStatusSnapshot?
     /// Hands out the bolus context and tracks the watch bolus being delivered.
     private var bolusContextIssuer = SmartwatchBolusContextIssuer()
+    /// How fresh every remote action from the watch must be.
+    private let requestWindow = SmartwatchRequestWindow.standard
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
     private var notificationObservers: [Any] = []
@@ -239,7 +241,7 @@ final class SmartwatchManagerHost {
             throw SmartwatchPresetError.notAllowed
         }
         let age = Date().timeIntervalSince(request.requestedAt)
-        guard SmartwatchBolusPolicy.Limits.standard.isFresh(request.requestedAt, now: Date()) else {
+        guard requestWindow.contains(request.requestedAt, now: Date()) else {
             logWatchRequest(manager, type: .error, String(format: "Preset request rejected: expiredRequest (confirmed %.0f s ago)", age))
             throw SmartwatchPresetError.expiredRequest
         }
@@ -289,6 +291,7 @@ final class SmartwatchManagerHost {
         }
 
         let policy = SmartwatchBolusPolicy(
+            limits: .init(requestWindow: requestWindow),
             isAllowed: UserDefaults.standard.allowWatchBolus && isCurrentWatch && manager.effectiveCapabilities.contains(.remoteBolus),
             currentContext: bolusContextIssuer.current,
             recentDeliveries: UserDefaults.standard.watchBolusDeliveries,
@@ -380,7 +383,7 @@ final class SmartwatchManagerHost {
             logWatchRequest(manager, type: .error, "Mute request from the watch refused: Allow Mute from Watch is off")
             throw SmartwatchAlertMuteError.notAllowed
         }
-        guard SmartwatchBolusPolicy.Limits.standard.isFresh(request.requestedAt, now: Date()) else {
+        guard requestWindow.contains(request.requestedAt, now: Date()) else {
             logWatchRequest(manager, type: .error, String(format: "Mute request from the watch refused: expiredRequest (confirmed %.0f s ago)", Date().timeIntervalSince(request.requestedAt)))
             throw SmartwatchAlertMuteError.expiredRequest
         }
@@ -409,6 +412,7 @@ final class SmartwatchManagerHost {
         }
         let previousEntry = UserDefaults.standard.lastWatchCarbEntry
         let policy = SmartwatchCarbEntryPolicy(
+            limits: .init(requestWindow: requestWindow),
             isAllowed: refusal == nil,
             maximumGrams: LoopConstants.maxCarbEntryQuantity.doubleValue(for: .gram),
             lastEntry: previousEntry
