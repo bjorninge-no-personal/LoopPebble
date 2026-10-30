@@ -1020,5 +1020,8 @@ private struct WatchPermissionsView: View {
         }
         .insetGroupedListStyle()
         .navigationTitle(NSLocalizedString("Watch Permissions", comment: "Watch permissions screen title"))
+        .onChange(of: [allowWatchMute, allowWatchOverrides, allowWatchCarbs, allowWatchBolus]) {
+            NotificationCenter.default.post(name: .WatchPermissionsChanged, object: nil)
+        }
     }
 }
