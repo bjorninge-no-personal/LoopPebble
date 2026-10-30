@@ -10,6 +10,11 @@ import LoopKit
 
 /// What the user allowed a watch plugin to do, and the history the rate limits
 /// need. The bolus checks themselves are LoopKit's `SmartwatchBolusPolicy`.
+extension Notification.Name {
+    /// A Watch Permissions toggle changed, so the snapshot's `permittedActions` did.
+    static let WatchPermissionsChanged = Notification.Name("com.loopkit.Loop.WatchPermissionsChanged")
+}
+
 extension UserDefaults {
     /// Whether boluses requested from a watch plugin may be delivered. Off by default.
     static let allowWatchBolusKey = "com.loopkit.Loop.allowWatchBolus"
@@ -49,6 +54,17 @@ extension UserDefaults {
     var allowWatchOverrides: Bool {
         get { bool(forKey: Self.allowWatchOverridesKey) }
         set { set(newValue, forKey: Self.allowWatchOverridesKey) }
+    }
+
+    /// The remote actions among `capabilities` whose toggle is on, for the
+    /// snapshot's `permittedActions`.
+    func permittedWatchActions(within capabilities: SmartwatchCapabilities) -> SmartwatchCapabilities {
+        var permitted: SmartwatchCapabilities = []
+        if allowWatchBolus { permitted.insert(.remoteBolus) }
+        if allowWatchCarbs { permitted.insert(.remoteCarbs) }
+        if allowWatchMute { permitted.insert(.remoteMute) }
+        if allowWatchOverrides { permitted.insert(.remoteOverride) }
+        return permitted.intersection(capabilities)
     }
 
     /// Turns off every Watch Permissions toggle. Called when the watch plugin is

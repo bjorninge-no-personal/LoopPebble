@@ -41,7 +41,7 @@ extension SmartwatchManagerHost {
             throw SmartwatchPresetError.notAllowed
         }
         let age = Date().timeIntervalSince(request.requestedAt)
-        guard requestWindow.contains(request.requestedAt, now: Date()) else {
+        guard manager.remoteActionLimits.requestWindow.contains(request.requestedAt, now: Date()) else {
             logWatchRequest(manager, type: .error, String(format: "Preset request rejected: expiredRequest (confirmed %.0f s ago)", age))
             throw SmartwatchPresetError.expiredRequest
         }
@@ -91,7 +91,7 @@ extension SmartwatchManagerHost {
         }
 
         let policy = SmartwatchBolusPolicy(
-            limits: .init(requestWindow: requestWindow),
+            limits: manager.remoteActionLimits.bolusPolicyLimits,
             isAllowed: UserDefaults.standard.allowWatchBolus && isCurrentWatch && manager.effectiveCapabilities.contains(.remoteBolus),
             currentContext: bolusContextIssuer.current,
             latestGlucoseDate: glucoseStore.latestGlucose?.startDate,
@@ -151,7 +151,7 @@ extension SmartwatchManagerHost {
             logWatchRequest(manager, type: .error, "Mute request from the watch refused: Allow Mute from Watch is off")
             throw SmartwatchAlertMuteError.notAllowed
         }
-        guard requestWindow.contains(request.requestedAt, now: Date()) else {
+        guard manager.remoteActionLimits.requestWindow.contains(request.requestedAt, now: Date()) else {
             logWatchRequest(manager, type: .error, String(format: "Mute request from the watch refused: expiredRequest (confirmed %.0f s ago)", Date().timeIntervalSince(request.requestedAt)))
             throw SmartwatchAlertMuteError.expiredRequest
         }
@@ -180,7 +180,7 @@ extension SmartwatchManagerHost {
         }
         let previousEntry = UserDefaults.standard.lastWatchCarbEntry
         let policy = SmartwatchCarbEntryPolicy(
-            limits: .init(requestWindow: requestWindow),
+            limits: manager.remoteActionLimits.carbEntryPolicyLimits,
             isAllowed: refusal == nil,
             maximumGrams: LoopConstants.maxCarbEntryQuantity.doubleValue(for: .gram),
             lastEntry: previousEntry
@@ -193,7 +193,7 @@ extension SmartwatchManagerHost {
         // rate limited instead of adding the carbs a second time.
         UserDefaults.standard.lastWatchCarbEntry = Date()
         do {
-            try await deliverCarbs(grams)
+            try await deliverCarbs(grams, request.requestedAt)
         } catch {
             UserDefaults.standard.lastWatchCarbEntry = previousEntry
             logWatchRequest(manager, type: .error, "Watch carb entry failed: \(error)")

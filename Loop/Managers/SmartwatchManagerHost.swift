@@ -28,7 +28,8 @@ final class SmartwatchManagerHost {
     private let healthStore: HKHealthStore
     let deliverBolus: (Double) async throws -> Void
     let alertMuter: AlertMuter
-    let deliverCarbs: (Double) async throws -> Void
+    /// Adds grams of carbs dated when the user confirmed them on the watch.
+    let deliverCarbs: (Double, Date) async throws -> Void
     let startOverride: (String) async throws -> Void
     let cancelOverride: () async throws -> Void
 
@@ -38,7 +39,6 @@ final class SmartwatchManagerHost {
     /// Hands out the bolus context and tracks the watch bolus being delivered.
     var bolusContextIssuer = SmartwatchBolusContextIssuer()
     /// How fresh every remote action from the watch must be.
-    let requestWindow = SmartwatchRequestWindow.standard
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
     private var notificationObservers: [Any] = []
@@ -51,7 +51,7 @@ final class SmartwatchManagerHost {
         healthStore: HKHealthStore,
         alertMuter: AlertMuter,
         deliverBolus: @escaping (Double) async throws -> Void,
-        deliverCarbs: @escaping (Double) async throws -> Void,
+        deliverCarbs: @escaping (Double, Date) async throws -> Void,
         startOverride: @escaping (String) async throws -> Void,
         cancelOverride: @escaping () async throws -> Void
     ) {
@@ -83,6 +83,9 @@ final class SmartwatchManagerHost {
             },
             NotificationCenter.default.addObserver(forName: .SmartwatchManagerChanged, object: deviceManager, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refresh() }
+            },
+            NotificationCenter.default.addObserver(forName: .WatchPermissionsChanged, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.update() }
             },
         ]
     }
@@ -170,6 +173,13 @@ final class SmartwatchManagerHost {
         }
         if capabilities.contains(.remoteOverride) {
             snapshot.overridePresets = currentOverridePresets()
+        }
+        snapshot.permittedActions = UserDefaults.standard.permittedWatchActions(within: capabilities)
+        if capabilities.contains(.remoteCarbs) {
+            snapshot.maximumCarbEntry = LoopConstants.maxCarbEntryQuantity.doubleValue(for: .gram)
+        }
+        if capabilities.contains(.remoteBolus) {
+            snapshot.bolusIncrement = SmartwatchStatusSnapshot.bolusIncrement(of: deviceManager.pumpManager?.supportedBolusVolumes ?? [])
         }
         return snapshot
     }
