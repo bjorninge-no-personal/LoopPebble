@@ -197,6 +197,8 @@
 		439A7945211FE23A0041B75F /* NSUserActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439A7943211FE22F0041B75F /* NSUserActivity.swift */; };
 		439BED2A1E76093C00B0AED5 /* CGMManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439BED291E76093C00B0AED5 /* CGMManager.swift */; };
 		0AB9F65B073904D4F9E5FCB9 /* SmartwatchManagerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */; };
+		1ADD1EF77E2083AC7690BD85 /* SmartwatchManagerHost+AlertForwarder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8772495BA2855FC99DDC3EB0 /* SmartwatchManagerHost+AlertForwarder.swift */; };
+		A018C4AF5E040B0DAC379735 /* SmartwatchManagerHost+RemoteActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE5E1D046A80EAC16C5514F /* SmartwatchManagerHost+RemoteActions.swift */; };
 		F89DD32969109D74C5AF9BCA /* SmartwatchPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FF5A18F9D81237E2855A7D /* SmartwatchPermissions.swift */; };
 		D23CD09C2E6905F436987257 /* SmartwatchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3621E1DB280412962D20BE6C /* SmartwatchManager.swift */; };
 		43A51E1F1EB6D62A000736CC /* CarbAbsorptionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A51E1E1EB6D62A000736CC /* CarbAbsorptionViewController.swift */; };
@@ -999,6 +1001,8 @@
 		439A7943211FE22F0041B75F /* NSUserActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSUserActivity.swift; sourceTree = "<group>"; };
 		439BED291E76093C00B0AED5 /* CGMManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CGMManager.swift; sourceTree = "<group>"; };
 		A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost.swift; sourceTree = "<group>"; };
+		8772495BA2855FC99DDC3EB0 /* SmartwatchManagerHost+AlertForwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost+AlertForwarder.swift; sourceTree = "<group>"; };
+		3EE5E1D046A80EAC16C5514F /* SmartwatchManagerHost+RemoteActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHost+RemoteActions.swift; sourceTree = "<group>"; };
 		D3FF5A18F9D81237E2855A7D /* SmartwatchPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchPermissions.swift; sourceTree = "<group>"; };
 		3621E1DB280412962D20BE6C /* SmartwatchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManager.swift; sourceTree = "<group>"; };
 		43A51E1E1EB6D62A000736CC /* CarbAbsorptionViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CarbAbsorptionViewController.swift; sourceTree = "<group>"; };
@@ -2218,6 +2222,8 @@
 				B4F3D25024AF890C0095CE44 /* BluetoothStateManager.swift */,
 				439BED291E76093C00B0AED5 /* CGMManager.swift */,
 				A35441020C3D0037E9AEB302 /* SmartwatchManagerHost.swift */,
+				8772495BA2855FC99DDC3EB0 /* SmartwatchManagerHost+AlertForwarder.swift */,
+				3EE5E1D046A80EAC16C5514F /* SmartwatchManagerHost+RemoteActions.swift */,
 				D3FF5A18F9D81237E2855A7D /* SmartwatchPermissions.swift */,
 				3621E1DB280412962D20BE6C /* SmartwatchManager.swift */,
 				C16575702538A36B004AE16E /* CGMStalenessMonitor.swift */,
@@ -3740,6 +3746,8 @@
 				84DF48C32F6A0AF600BEDB40 /* Image+Crop.swift in Sources */,
 				439BED2A1E76093C00B0AED5 /* CGMManager.swift in Sources */,
 				0AB9F65B073904D4F9E5FCB9 /* SmartwatchManagerHost.swift in Sources */,
+				1ADD1EF77E2083AC7690BD85 /* SmartwatchManagerHost+AlertForwarder.swift in Sources */,
+				A018C4AF5E040B0DAC379735 /* SmartwatchManagerHost+RemoteActions.swift in Sources */,
 				F89DD32969109D74C5AF9BCA /* SmartwatchPermissions.swift in Sources */,
 				D23CD09C2E6905F436987257 /* SmartwatchManager.swift in Sources */,
 				C16B983E26B4893300256B05 /* DoseEnactor.swift in Sources */,
