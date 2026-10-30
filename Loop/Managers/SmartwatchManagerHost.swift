@@ -369,7 +369,8 @@ final class SmartwatchManagerHost {
     /// Settings: the duration is one Loop offers (the shortest that covers the
     /// request), and the mute shows on the phone with its Unmute button. Only
     /// while Allow Mute from Watch is on.
-    func handleAlertMuteRequest(_ duration: TimeInterval, from manager: SmartwatchManager) throws -> Date {
+    func handleAlertMuteRequest(_ request: SmartwatchAlertMuteRequest, from manager: SmartwatchManager) throws -> Date {
+        let duration = request.duration
         let isCurrentWatch = deviceManager.smartwatchManager.map { ($0 as AnyObject) === (manager as AnyObject) } ?? false
         guard isCurrentWatch, manager.effectiveCapabilities.contains(.remoteMute) else {
             logWatchRequest(manager, type: .error, "Mute request from the watch refused: this watch can't mute alerts (remoteMute not declared or not requested)")
@@ -378,6 +379,10 @@ final class SmartwatchManagerHost {
         guard UserDefaults.standard.allowWatchMute else {
             logWatchRequest(manager, type: .error, "Mute request from the watch refused: Allow Mute from Watch is off")
             throw SmartwatchAlertMuteError.notAllowed
+        }
+        guard SmartwatchBolusPolicy.Limits.standard.isFresh(request.requestedAt, now: Date()) else {
+            logWatchRequest(manager, type: .error, String(format: "Mute request from the watch refused: expiredRequest (confirmed %.0f s ago)", Date().timeIntervalSince(request.requestedAt)))
+            throw SmartwatchAlertMuteError.expiredRequest
         }
         let allowed = AlertMuter.allowedDurations
         let muteDuration = allowed.first { $0 >= duration } ?? allowed[allowed.count - 1]
