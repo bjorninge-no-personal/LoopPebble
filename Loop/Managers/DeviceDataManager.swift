@@ -1124,17 +1124,27 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
 
     nonisolated
     func smartwatchManager(_ manager: SmartwatchManager, didLogEvent event: SmartwatchDeviceLogEntry) {
-        let type: DeviceLogEntryType
-        switch event.type {
-        case .send: type = .send
-        case .receive: type = .receive
-        case .error: type = .error
-        case .delegate: type = .delegate
-        case .delegateResponse: type = .delegateResponse
-        case .connection: type = .connection
-        }
         Task { @MainActor in
-            deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: event.deviceIdentifier, type: type, message: event.message, completion: nil)
+            deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: event.deviceIdentifier, type: DeviceLogEntryType(event.type), message: event.message, completion: nil)
+        }
+    }
+
+    /// Shows the plugin's alert about the watch as Loop's own alert from this
+    /// plugin. A plugin can't raise a critical alert: at most time-sensitive.
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, issueDeviceAlert alert: SmartwatchDeviceAlert) {
+        let loopAlert = Alert(alert, from: manager, acknowledgeActionButtonLabel: NSLocalizedString("OK", comment: "Button to acknowledge an alert from a watch plugin"))
+        Task { @MainActor in
+            deviceLog.log(managerIdentifier: manager.pluginIdentifier, deviceIdentifier: nil, type: .error, message: "Watch plugin alert: \(alert.title): \(alert.body)", completion: nil)
+            await alertManager?.issueAlert(loopAlert)
+        }
+    }
+
+    nonisolated
+    func smartwatchManager(_ manager: SmartwatchManager, retractDeviceAlert identifier: SmartwatchAlertIdentifier) {
+        let loopIdentifier = Alert.Identifier(identifier, from: manager)
+        Task { @MainActor in
+            await alertManager?.retractAlert(identifier: loopIdentifier)
         }
     }
 
@@ -1147,11 +1157,11 @@ extension DeviceDataManager: SmartwatchManagerDelegate {
     }
 
     nonisolated
-    func smartwatchManager(_ manager: SmartwatchManager, requestAlertMute duration: TimeInterval) async throws -> Date {
+    func smartwatchManager(_ manager: SmartwatchManager, requestAlertMute request: SmartwatchAlertMuteRequest) async throws -> Date {
         guard let host = await smartwatchManagerHost else {
             throw SmartwatchAlertMuteError.notAllowed
         }
-        return try await host.handleAlertMuteRequest(duration, from: manager)
+        return try await host.handleAlertMuteRequest(request, from: manager)
     }
 
     nonisolated

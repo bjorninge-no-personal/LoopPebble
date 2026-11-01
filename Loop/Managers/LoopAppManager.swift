@@ -442,11 +442,11 @@ class LoopAppManager: NSObject {
                 try await servicesManager.deliverRemoteBolus(amountInUnits: units, decisionId: nil)
             },
             // The same path as remote carbs: validation, notification, upload.
-            deliverCarbs: { [weak servicesManager] grams in
+            deliverCarbs: { [weak servicesManager] grams, date in
                 guard let servicesManager else {
                     throw SmartwatchCarbEntryError.notAllowed
                 }
-                try await servicesManager.deliverRemoteCarbs(amountInGrams: grams, absorptionTime: nil, foodType: nil, startDate: nil)
+                try await servicesManager.deliverRemoteCarbs(amountInGrams: grams, absorptionTime: nil, foodType: nil, startDate: date)
             },
             // The same path as remote overrides: the preset's own duration, upload.
             startOverride: { [weak servicesManager] name in
