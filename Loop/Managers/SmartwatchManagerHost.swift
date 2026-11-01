@@ -155,7 +155,7 @@ final class SmartwatchManagerHost {
             glucoseHistory: capabilities.contains(.history) ? readings : []
         )
         if capabilities.contains(.prediction) {
-            snapshot.predictedGlucose = loopDataManager.displayState.output?.predictedGlucose.map {
+            snapshot.predictedGlucose = loopDataManager.predictedGlucose?.map {
                 SmartwatchPredictedGlucose(date: $0.startDate, milligramsPerDeciliter: $0.quantity.doubleValue(for: .milligramsPerDeciliter))
             }
         }
@@ -206,7 +206,7 @@ final class SmartwatchManagerHost {
             tempBasalRate: tempBasalRate,
             scheduledBasalRate: presets.basalRateScheduleApplyingOverrideHistory?.value(at: now),
             insulinSensitivity: presets.insulinSensitivityScheduleApplyingOverrideHistory?.quantity(at: now).doubleValue(for: .milligramsPerDeciliter),
-            eventualGlucose: loopDataManager.displayState.output?.predictedGlucose.last?.quantity.doubleValue(for: .milligramsPerDeciliter),
+            eventualGlucose: loopDataManager.predictedGlucose?.last?.quantity.doubleValue(for: .milligramsPerDeciliter),
             correctionRange: range.map { $0.lowerBound.doubleValue(for: .milligramsPerDeciliter)...$0.upperBound.doubleValue(for: .milligramsPerDeciliter) },
             activePresetName: presetName,
             activePresetEnd: override?.scheduledEndDate
