@@ -54,6 +54,15 @@ extension SmartwatchManagerHost: AlertForwarder {
                 glucoseAlertType: Self.glucoseAlertType(of: alert.identifier)
             )
         )
+        // Loop never retracts a test alert: clear it on the watch once it has shown.
+        if Self.isTestAlert(alert.identifier) {
+            lastWatchTestAlertAt = Date()
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(Self.watchTestAlertDuration * 1_000_000_000))
+                guard let current = self.deviceManager.smartwatchManager else { return }
+                self.retractWatchAlertsNoLongerShown(current)
+            }
+        }
         // Queued after the plugin's own "issued" line, which also hops to the main
         // actor. Uses the same unit as the watch snapshots (HealthKit's stored one).
         let firedAt = Date()

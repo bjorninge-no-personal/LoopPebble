@@ -38,10 +38,14 @@ final class SmartwatchManagerHost {
     private var lastSentSnapshot: SmartwatchStatusSnapshot?
     /// Hands out the bolus context and tracks the watch bolus being delivered.
     var bolusContextIssuer = SmartwatchBolusContextIssuer()
-    /// How fresh every remote action from the watch must be.
     /// Incremented per update so a slower glucose fetch cannot overwrite a newer snapshot.
     private var updateGeneration = 0
     private var notificationObservers: [Any] = []
+    /// When a test alert last went to the watch. Loop never retracts test alerts,
+    /// so the host clears them once they have shown for `watchTestAlertDuration`.
+    var lastWatchTestAlertAt: Date?
+    /// How long a test alert colours the watch's ring.
+    static let watchTestAlertDuration: TimeInterval = 30
 
     init(
         deviceManager: DeviceDataManager,
@@ -102,6 +106,7 @@ final class SmartwatchManagerHost {
         guard let smartwatchManager = deviceManager.smartwatchManager else {
             return
         }
+        retractWatchAlertsNoLongerShown(smartwatchManager)
         updateGeneration += 1
         let generation = updateGeneration
         // Fill only what the watch asks for now (the user may have turned a display
@@ -237,14 +242,63 @@ final class SmartwatchManagerHost {
     }
 
     /// Which glucose alert this is, so plugins needn't know Loop's alert identifiers.
+    /// A test alert counts as its alarm's, so the watch shows and buzzes it the same way.
     static func glucoseAlertType(of identifier: Alert.Identifier) -> SmartwatchGlucoseAlertType? {
         guard identifier.managerIdentifier == GlucoseAlertManager.managerIdentifier else { return nil }
-        switch identifier.alertIdentifier {
-        case GlucoseAlertManager.urgentLowAlertIdentifier: return .urgentLow
-        case GlucoseAlertManager.lowAlertIdentifier: return .low
-        case GlucoseAlertManager.highAlertIdentifier: return .high
-        case GlucoseAlertManager.predictedLowAlertIdentifier: return .predictedLow
-        default: return nil
+        switch GlucoseAlarmKind.kind(forAlertIdentifier: identifier.alertIdentifier) {
+        case .urgentLow: return .urgentLow
+        case .low: return .low
+        case .high: return .high
+        case .predictedLow: return .predictedLow
+        case nil: return nil
+        }
+    }
+
+    static func isTestAlert(_ identifier: Alert.Identifier) -> Bool {
+        identifier.managerIdentifier == GlucoseAlertManager.managerIdentifier
+            && GlucoseAlarmKind.allCases.contains { $0.testAlertIdentifier == identifier.alertIdentifier }
+    }
+
+    /// Glucose alerts the watch must stop showing although Loop won't retract them:
+    /// Loop clears an alert only on a reading back over its recovery line, and stops
+    /// checking one that is switched off. So every alarm that is off in the active
+    /// profile, or all of them while Loop's alerts are off (the CGM raises its own),
+    /// and test alerts once they have shown long enough. Based on the settings, not
+    /// the reading: recovery while an alarm is on is Loop's own.
+    static func watchAlertsToRetract(configuration: GlucoseAlertConfiguration, loopAlertsEnabled: Bool, lastTestAlertAt: Date?, now: Date) -> [Alert.AlertIdentifier] {
+        var identifiers = GlucoseAlarmKind.allCases
+            .filter { !loopAlertsEnabled || !isEnabled($0, in: configuration) }
+            .map(\.alertIdentifier)
+        if lastTestAlertAt.map({ now.timeIntervalSince($0) >= watchTestAlertDuration }) ?? true {
+            identifiers += GlucoseAlarmKind.allCases.map(\.testAlertIdentifier)
+        }
+        return identifiers
+    }
+
+    private static func isEnabled(_ kind: GlucoseAlarmKind, in configuration: GlucoseAlertConfiguration) -> Bool {
+        switch kind {
+        case .urgentLow: return configuration.urgentLowEnabled
+        case .low: return configuration.lowEnabled
+        case .high: return configuration.highEnabled
+        case .predictedLow: return configuration.predictedLowEnabled
+        }
+    }
+
+    /// Retracts what `watchAlertsToRetract` lists, on every update (each reading,
+    /// loop cycle and reconnect). The plugin ignores alerts it doesn't have, so the
+    /// host keeps no record of what it sent, and this also works after a relaunch.
+    func retractWatchAlertsNoLongerShown(_ smartwatchManager: SmartwatchManager, now: Date = Date()) {
+        guard type(of: smartwatchManager).capabilities.contains(.alerts) else { return }
+        let alertManager = deviceManager.glucoseAlertManager
+        let identifiers = Self.watchAlertsToRetract(
+            configuration: alertManager.activeConfiguration(at: now),
+            loopAlertsEnabled: alertManager.effectiveLoopAlertsEnabled,
+            lastTestAlertAt: lastWatchTestAlertAt,
+            now: now
+        )
+        for identifier in identifiers {
+            let alertIdentifier = Alert.Identifier(managerIdentifier: GlucoseAlertManager.managerIdentifier, alertIdentifier: identifier)
+            smartwatchManager.watchAlertDidRetract(SmartwatchAlertIdentifier(alertIdentifier.value))
         }
     }
 

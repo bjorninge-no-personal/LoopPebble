@@ -568,6 +568,7 @@
 		C17DDC9D28AC33A1005FBF4C /* PersistedProperty.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DA986B2843B6F9001D04CC /* PersistedProperty.swift */; };
 		C188599B2AF15E1B0010F21F /* DeviceDataManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C188599A2AF15E1B0010F21F /* DeviceDataManagerTests.swift */; };
 		893CADEC0F22143E8D0DE0DF /* SmartwatchPermissionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D6390D50BED3BB63A16AEB /* SmartwatchPermissionsTests.swift */; };
+		22A2B3D7A696722C213DDFCD /* SmartwatchManagerHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E4F9D180117EFDC2A339E1 /* SmartwatchManagerHostTests.swift */; };
 		C188599E2AF15FAB0010F21F /* AlertMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = C188599D2AF15FAB0010F21F /* AlertMocks.swift */; };
 		C18859A02AF1612B0010F21F /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C188599F2AF1612B0010F21F /* PersistenceController.swift */; };
 		C18859A22AF165130010F21F /* MockPumpManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C18859A12AF165130010F21F /* MockPumpManager.swift */; };
@@ -1437,6 +1438,7 @@
 		C1814B85225E507C008D2D8E /* Sequence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sequence.swift; sourceTree = "<group>"; };
 		C188599A2AF15E1B0010F21F /* DeviceDataManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDataManagerTests.swift; sourceTree = "<group>"; };
 		F2D6390D50BED3BB63A16AEB /* SmartwatchPermissionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchPermissionsTests.swift; sourceTree = "<group>"; };
+		13E4F9D180117EFDC2A339E1 /* SmartwatchManagerHostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartwatchManagerHostTests.swift; sourceTree = "<group>"; };
 		C188599D2AF15FAB0010F21F /* AlertMocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertMocks.swift; sourceTree = "<group>"; };
 		C188599F2AF1612B0010F21F /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		C18859A12AF165130010F21F /* MockPumpManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPumpManager.swift; sourceTree = "<group>"; };
@@ -1771,6 +1773,7 @@
 				A91E4C2224F86F1000BE9213 /* CriticalEventLogExportManagerTests.swift */,
 				C188599A2AF15E1B0010F21F /* DeviceDataManagerTests.swift */,
 				F2D6390D50BED3BB63A16AEB /* SmartwatchPermissionsTests.swift */,
+				13E4F9D180117EFDC2A339E1 /* SmartwatchManagerHostTests.swift */,
 				C16B983F26B4898800256B05 /* DoseEnactorTests.swift */,
 				E9C58A7124DB489100487A17 /* LoopDataManagerTests.swift */,
 				A1B2C3D40000000000000001 /* GlucoseAlertManagerTests.swift */,
@@ -4158,6 +4161,7 @@
 				A91E4C2324F86F1000BE9213 /* CriticalEventLogExportManagerTests.swift in Sources */,
 				C188599B2AF15E1B0010F21F /* DeviceDataManagerTests.swift in Sources */,
 				893CADEC0F22143E8D0DE0DF /* SmartwatchPermissionsTests.swift in Sources */,
+				22A2B3D7A696722C213DDFCD /* SmartwatchManagerHostTests.swift in Sources */,
 				C18859A42AF165330010F21F /* MockCGMManager.swift in Sources */,
 				E9C58A7324DB4A2700487A17 /* LoopDataManagerTests.swift in Sources */,
 				A1B2C3D40000000000000002 /* GlucoseAlertManagerTests.swift in Sources */,
