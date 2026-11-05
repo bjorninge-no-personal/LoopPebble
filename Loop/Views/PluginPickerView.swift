@@ -67,6 +67,9 @@ struct PluginPickerView: View {
         let group: String?
 
         let image: UIImage?
+
+        /// Shown greyed out as coming soon, and can't be chosen.
+        var isComingSoon = false
     }
 
     let pluginType: PluginType
@@ -136,7 +139,7 @@ struct PluginPickerView: View {
 
     private func rows(for group: ItemGroup) -> some View {
         ForEach(group.items) { item in
-            Button(action: { onSelect(item) }) {
+            Button(action: { if !item.isComingSoon { onSelect(item) } }) {
                 HStack(spacing: 12) {
                     PluginIconView(image: item.image, fallbackSystemImage: pluginType.fallbackSystemImage)
                     VStack(alignment: .leading, spacing: 2) {
@@ -150,17 +153,35 @@ struct PluginPickerView: View {
                         }
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundColor(Color(UIColor.tertiaryLabel))
+                    if item.isComingSoon {
+                        ComingSoonBadge()
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(Color(UIColor.tertiaryLabel))
+                    }
                 }
                 .padding(.vertical, 4)
                 .contentShape(Rectangle())
                 .accessibilityElement(children: .combine)
             }
             .buttonStyle(.plain)
+            .disabled(item.isComingSoon)
             .accessibilityIdentifier("pluginPickerItem-\(item.id)")
         }
+    }
+}
+
+/// Marks a plugin that is listed but can't be added yet.
+private struct ComingSoonBadge: View {
+    var body: some View {
+        Text(NSLocalizedString("Coming soon", comment: "Plugin picker: badge on a plugin that can't be added yet"))
+            .font(.caption.weight(.semibold))
+            .foregroundColor(.accentColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+            .fixedSize()
     }
 }
 
@@ -207,8 +228,9 @@ extension PluginPickerView.Item {
         self.init(id: descriptor.identifier, title: descriptor.localizedTitle, subtitle: descriptor.subtitle, group: descriptor.manufacturer, image: descriptor.image)
     }
 
+    @MainActor
     init(_ descriptor: SmartwatchManagerDescriptor) {
-        self.init(id: descriptor.identifier, title: descriptor.localizedTitle, subtitle: descriptor.subtitle, group: descriptor.manufacturer, image: descriptor.image)
+        self.init(id: descriptor.identifier, title: descriptor.localizedTitle, subtitle: descriptor.subtitle, group: descriptor.manufacturer, image: descriptor.image, isComingSoon: descriptor.isComingSoon)
     }
 
     init(_ descriptor: ServiceDescriptor) {

@@ -131,7 +131,7 @@ class PluginManager {
 
     func getSmartwatchManagerTypeByIdentifier(_ identifier: String) -> SmartwatchManagerUI.Type? {
         for bundle in pluginBundles {
-            if let name = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.smartwatchManagerIdentifier.rawValue) as? String, name == identifier {
+            if let name = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.smartwatchManagerIdentifier.rawValue) as? String, name == identifier, !Self.isComingSoon(bundle) {
                 do {
                     try bundle.loadAndReturnError()
 
@@ -154,6 +154,15 @@ class PluginManager {
         return nil
     }
 
+    /// A plugin bundle marked as coming soon (`com.loopkit.Loop.PluginComingSoon`),
+    /// which Loop lists but neither offers nor loads.
+    private static func isComingSoon(_ bundle: Bundle) -> Bool {
+        bundle.object(forInfoDictionaryKey: "com.loopkit.Loop.PluginComingSoon") as? Bool ?? false
+    }
+
+    /// The identifiers of watch plugins listed as coming soon.
+    private(set) static var comingSoonSmartwatchManagers: Set<String> = []
+
     var availableSmartwatchManagers: [SmartwatchManagerDescriptor] {
         pluginBundles.compactMap({ (bundle) -> SmartwatchManagerDescriptor? in
             guard let title = bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.smartwatchManagerDisplayName.rawValue) as? String,
@@ -161,12 +170,17 @@ class PluginManager {
                 return nil
             }
 
+            // Coming soon: listed from its Info.plist only, without loading its code.
+            let isComingSoon = Self.isComingSoon(bundle)
+            if isComingSoon {
+                Self.comingSoonSmartwatchManagers.insert(identifier)
+            }
             return SmartwatchManagerDescriptor(
                 identifier: identifier,
                 localizedTitle: title,
                 subtitle: bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.pluginSubtitle.rawValue) as? String,
                 manufacturer: bundle.object(forInfoDictionaryKey: LoopPluginBundleKey.deviceManufacturer.rawValue) as? String,
-                image: getSmartwatchManagerTypeByIdentifier(identifier)?.pickerImage
+                image: isComingSoon ? nil : getSmartwatchManagerTypeByIdentifier(identifier)?.pickerImage
             )
         })
     }
@@ -334,5 +348,13 @@ extension Bundle {
         }
 
         return principalClass.init()
+    }
+}
+
+extension SmartwatchManagerDescriptor {
+    /// Listed from a plugin bundle marked as coming soon: shown, but not offered.
+    @MainActor
+    var isComingSoon: Bool {
+        PluginManager.comingSoonSmartwatchManagers.contains(identifier)
     }
 }
