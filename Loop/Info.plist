@@ -47,6 +47,7 @@
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<string>gcm-ciq</string>
 		<string>dexcomg6</string>
 		<string>dexcomg7</string>
 		<string>dexcomoneplus</string>
