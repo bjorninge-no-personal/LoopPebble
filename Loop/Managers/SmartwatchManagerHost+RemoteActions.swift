@@ -65,9 +65,9 @@ extension SmartwatchManagerHost {
 
     /// Delivers a bolus the plugin passed on, through the same path as remote
     /// boluses. Only for the current watch manager, at most Loop's maximum bolus,
-    /// rounded to a volume the pump supports, and one at a time. Returns only once
-    /// the pump confirmed delivery: a pump error, uncertain delivery included, is
-    /// thrown as `.deliveryFailed`.
+    /// rounded to a volume the pump supports, and one at a time. Returns once the
+    /// pump accepted the bolus (it may still be cancelled while it runs): a pump
+    /// error, uncertain delivery included, is thrown as `.deliveryFailed`.
     func smartwatchManager(_ manager: SmartwatchManager, deliverBolus units: Double) async throws -> Double {
         logWatchRequest(manager, type: .receive, String(format: "Bolus request: %.3f U", units))
         let maximumBolus = settingsManager.loopSettings.maximumBolus
@@ -126,7 +126,13 @@ extension SmartwatchManagerHost {
     /// The bolus itself is checked again when it's requested.
     func smartwatchManager(_ manager: SmartwatchManager, recommendBolusForCarbs grams: Double, absorptionTime: TimeInterval?) async throws -> Double {
         let absorptionTime = absorptionTime ?? LoopCoreConstants.defaultCarbAbsorptionTimes.medium
-        logWatchRequest(manager, type: .receive, String(format: "Bolus recommendation request with %.0f g of carbs, %.0f min absorption", grams, absorptionTime / 60))
+        // With 0 g it's the plugin's read for its bolus context, made after every
+        // change: logged only when the answer changes. The watch's own questions
+        // come with carbs and are always logged.
+        let isContextRead = grams == 0
+        if !isContextRead {
+            logWatchRequest(manager, type: .receive, String(format: "Bolus recommendation request with %.0f g of carbs, %.0f min absorption", grams, absorptionTime / 60))
+        }
         guard isCurrentWatch(manager) else {
             logWatchRequest(manager, type: .error, "Bolus recommendation refused: the request isn't from the current watch")
             throw SmartwatchBolusError.notAllowed
@@ -155,6 +161,12 @@ extension SmartwatchManagerHost {
         let recommended = max(0, recommendation?.amount ?? 0)
         let units = deviceManager.pumpManager?.roundToSupportedBolusVolume(units: recommended) ?? recommended
         let maximumBolus = settingsManager.loopSettings.maximumBolus
+        if isContextRead {
+            guard units != lastContextRecommendation else {
+                return units
+            }
+            lastContextRecommendation = units
+        }
         logWatchRequest(manager, type: .delegateResponse, String(format: "Bolus recommendation with %.0f g of carbs: %.2f U%@", grams, units, maximumBolus.map { String(format: " (maximum bolus %.2f U)", $0) } ?? ""))
         return units
     }
