@@ -386,16 +386,28 @@ extension SmartwatchManagerHost {
         await deviceManager.alertManager?.retractAlert(identifier: Self.watchPluginAlertIdentifier(identifier, from: manager.pluginIdentifier))
     }
 
+    // The lookups find the plugin's alerts where `issueAlert` stored them: under
+    // the plugin's identifier, whatever manager the plugin names.
+
     func doesIssuedAlertExist(identifier: Alert.Identifier) async throws -> Bool {
-        try await deviceManager.doesIssuedAlertExist(identifier: identifier)
+        guard let manager = deviceManager.smartwatchManager else {
+            return false
+        }
+        return try await deviceManager.doesIssuedAlertExist(identifier: Self.watchPluginAlertIdentifier(identifier, from: manager.pluginIdentifier))
     }
 
     func lookupAllUnretracted(managerIdentifier: String) async throws -> [PersistedAlert] {
-        try await deviceManager.lookupAllUnretracted(managerIdentifier: managerIdentifier)
+        guard let manager = deviceManager.smartwatchManager else {
+            return []
+        }
+        return try await deviceManager.lookupAllUnretracted(managerIdentifier: manager.pluginIdentifier)
     }
 
     func lookupAllUnacknowledgedUnretracted(managerIdentifier: String) async throws -> [PersistedAlert] {
-        try await deviceManager.lookupAllUnacknowledgedUnretracted(managerIdentifier: managerIdentifier)
+        guard let manager = deviceManager.smartwatchManager else {
+            return []
+        }
+        return try await deviceManager.lookupAllUnacknowledgedUnretracted(managerIdentifier: manager.pluginIdentifier)
     }
 
     func recordRetractedAlert(_ alert: Alert, at date: Date) async throws {
